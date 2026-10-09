@@ -18,7 +18,7 @@ const utc=()=>new Date().toISOString();
 const gate=(condition,name)=>{if(!condition)throw new Error('GATE_'+name);};
 const own=(obj,key)=>obj&&typeof obj==='object'&&Object.hasOwn(obj,key)?obj[key]:undefined;
 const pick=(obj,names)=>names.map(k=>own(obj,k)).find(v=>v!==undefined);
-const knownRoots=['errorInfo','ErrorInfo','OrderId','orderId','ExtId','ExtID','extId','Amount','amount','Currency','currency','Status','status','State','state','OrderState','orderState','OperationState','operationState','AcsUrl','ACSUrl','acsUrl','PaReq','paReq','Md','MD','md','FormUrl','formUrl','CardRefId','CardRefID','cardRefId','AuthenticationData','authenticationData','ThreeDSServerTransID','ThreeDSServerTransId','threeDSServerTransID','ThreeDSMethodUrl','threeDSMethodUrl','ThreeDSMethodData','threeDSMethodData','OrderAdditionalInfo','orderAdditionalInfo','Data','data'];
+const knownRoots=['errorInfo','ErrorInfo','OrderId','orderId','ExtId','ExtID','extId','Amount','amount','Currency','currency','Status','status','State','state','OrderState','orderState','OperationState','operationState','AcsUrl','ACSUrl','acsUrl','PaReq','paReq','Md','MD','md','FormUrl','formUrl','CardRefId','CardRefID','cardRefId','AuthenticationData','authenticationData','ThreeDSServerTransID','ThreeDSServerTransId','threeDSServerTransID','ThreeDSMethodUrl','threeDSMethodUrl','ThreeDSMethodData','threeDSMethodData','OrderAdditionalInfo','orderAdditionalInfo','OrderInfo','orderInfo','Order','order','Is3ds','Is3DS','is3ds','ThreeDSVersion','threeDSVersion','Data','data'];
 const statusWords=new Set(['created','registered','pending','processing','accepted','authorized','paid','captured','succeeded','success','failed','declined','canceled','cancelled','expired','completed','requires_action','requires_3ds','wait_3ds','waiting_3ds','unknown']);
 function safeCode(value,sensitive=[]){
   if(sensitive.some(x=>String(x)===String(value)))return undefined;
@@ -32,21 +32,25 @@ function safeStatus(value,sensitive=[]){
   if(typeof value==='string'&&statusWords.has(value.toLowerCase()))return value.toLowerCase();
   return undefined;
 }
+const objectValue=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+function scopes(body){const list=[body];for(const obj of [pick(body,['OrderInfo','orderInfo','Data','data','Order','order'])])if(objectValue(obj)&&!list.includes(obj))list.push(obj);return list;}
+function scoped(body,names){for(const obj of scopes(body)){const v=pick(obj,names);if(v!==undefined)return v;}return undefined;}
 function summary(body,ledger,http,sensitive=[]){
   const roots=body&&typeof body==='object'&&!Array.isArray(body)?Object.keys(body):[];
-  const err=pick(body,['errorInfo','ErrorInfo']);
+  const err=scoped(body,['errorInfo','ErrorInfo']);
   const code=safeCode(pick(err,['errorCode','ErrorCode']),sensitive);
   const message=pick(err,['errorMessage','ErrorMessage']);
   const reason=typeof message!=='string'?'absent':/успех|success/i.test(message)?'success_word':/прав|access|permission|разреш|запрещ/i.test(message)?'access':/подпис|signature|login|логин/i.test(message)?'authentication':/параметр|parameter|год|year|month|месяц|cvv|cvc|срок|неверн/i.test(message)?'validation':'other';
-  const bankRef=pick(body,['ExtId','ExtID','extId']);
-  const amount=pick(body,['Amount','amount']);
-  const currency=pick(body,['Currency','currency']);
-  const status=safeStatus(pick(body,['Status','status','State','state','OrderState','orderState','OperationState','operationState']),sensitive);
-  const acs=pick(body,['AcsUrl','ACSUrl','acsUrl']);
-  const pareq=pick(body,['PaReq','paReq']);
-  const md=pick(body,['Md','MD','md']);
+  const bankRef=scoped(body,['ExtId','ExtID','extId']);
+  const amount=scoped(body,['Amount','amount']);
+  const currency=scoped(body,['Currency','currency']);
+  const status=safeStatus(scoped(body,['Status','status','State','state','OrderState','orderState','OperationState','operationState']),sensitive);
+  const acs=scoped(body,['AcsUrl','ACSUrl','acsUrl']);
+  const pareq=scoped(body,['PaReq','paReq']);
+  const md=scoped(body,['Md','MD','md']);
   const result={scenario:'WOF-01',stage:ledger.stage,checked_at:utc(),http_status:http,ref_hash:hash(ledger.ref),amount:AMOUNT,currency:'RUB',root_keys:roots.filter(k=>knownRoots.includes(k)),unknown_keys:roots.filter(k=>!knownRoots.includes(k)).length,error_code:code,error_reason:reason,status_value:status,ref_match:typeof bankRef==='string'?bankRef===ledger.ref:null,amount_match:typeof amount==='number'||typeof amount==='string'?String(amount)===String(AMOUNT):null,currency_match:typeof currency==='string'?currency==='RUB':null,order_present:!!pick(body,['OrderId','orderId']),acs_present:typeof acs==='string'&&acs.length>0,pareq_present:typeof pareq==='string'&&pareq.length>0,md_present:typeof md==='string'&&md.length>0,auth_present:!!pick(body,['AuthenticationData','authenticationData']),method_present:!!pick(body,['ThreeDSMethodUrl','threeDSMethodUrl']),financial:'unproven'};
-  result.reply_kind=http>=200&&http<300&&Number(code)===0?'bank_reply':'nonfinal_error';
+  result.reply_kind=result.acs_present&&result.pareq_present&&result.md_present?'requires_action':http>=200&&http<300&&Number(code)===0?'bank_reply':'nonfinal_error';
+  result.order_fields=objectValue(pick(body,['OrderInfo','orderInfo']))?Object.keys(pick(body,['OrderInfo','orderInfo'])).filter(k=>knownRoots.includes(k)):[];
   if(result.ref_match===false||result.amount_match===false||result.currency_match===false)result.reply_kind='correlation_conflict';
   // No bank status dictionary supplied: never map HTTP/code/status text to paid.
   return result;

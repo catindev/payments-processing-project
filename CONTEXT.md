@@ -1,6 +1,6 @@
 # CONTEXT — восстановленный контекст проекта
 
-**Срез:** 2026-10-09; дополнен owner-допуском и Hello preflight. **Текущая ветка:** `research/tkb-preflight` (первичный аудит: `research/initial-audit`, commit `1c84bb3`). **Исходная ревизия аудита:** `97784b9d69e5f7ce347f84429f69bacc5872cbf0`.
+**Срез:** 2026-10-09; дополнен owner-допуском, Hello preflight и WOF-01. **Текущая ветка:** `research/tkb-wof` (preflight: `research/tkb-preflight`, primary audit: `research/initial-audit`, commit `1c84bb3`). **Исходная ревизия аудита:** `97784b9d69e5f7ce347f84429f69bacc5872cbf0`.
 
 Это производный контекст первой итерации, **не новый журнал согласования**. При расхождении действуют [утверждённые решения](<docs/current/payment-processing-decisions-v1.1.md>) и [NAME-01](<docs/current/payment-naming-conventions-v1.1.md>). [Исходный handoff](<handoff/PROJECT_CONTEXT.md>) сохранён. Итоги и ограничения — в [аудите](<reports/initial-audit.md>), текущая готовность — в [STATUS](<STATUS.md>).
 
