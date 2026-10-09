@@ -1,0 +1,194 @@
+# ТКБ: исследовательский профиль (не декларация фактических прав тестового терминала).
+# Источник: предоставленная Postman-коллекция TKBPAY-v11042025 и документы TKB PAY.
+profile_version: '0.2-draft'
+provider: tkb
+as_of: '2026-10-09'
+status: documentary_only_not_tested
+supports_merchant_connecting_api: unknown
+orchestration_boundary:
+  business_rule: BR-01
+  status: approved_2026_10_09
+  provider_owns_payment_intent: false
+  one_payment_one_bank_session: proposed_core_invariant
+  unknown_child_payment_blocks_next_intent_payment: true
+  automatic_retry_after_decline: false
+  bank_internal_card_auth_attempts_may_be_opaque: true
+  note: >-
+    PaymentIntent exists only in the PSP core. TKB methods are called for one
+    concrete Payment. A new buyer-initiated attempt creates a new Payment,
+    not a new Submit for an already failed Payment.
+request_format:
+  transport: HTTPS_POST_JSON
+  auth_headers:
+    - TCB-Header-Login
+    - TCB-Header-Sign
+  signature_description: HMAC-SHA1/Base64 по телу JSON как в предоставленной документации
+  credential_ref: vault://tkb/example/replace_with_secret_reference
+  secret_values_in_profile: false
+identity:
+  fields_variants:
+    - ExtId
+    - ExtID
+  note: >-
+    Для создания оплаты ExtId является внешней ссылкой на новую операцию.
+    Refund, Reverse, HoldConfirm в примерах используют ExtId/ExtID исходной операции.
+    Наличие отдельного ID нового возврата/завершения не подтверждено.
+  bank_idempotency_guarantee: unknown
+  retry_of_mutating_method_without_written_guarantee: forbidden
+capabilities:
+  card_payment:
+    status: unknown
+    source: bank_document
+    documented_method: RegisterOrderFromUnregisteredCard
+  manual_capture:
+    status: unknown
+    source: bank_document
+    documented_method: Hold
+  single_partial_capture:
+    status: unknown
+    source: bank_document
+    documented_method: HoldConfirm
+  multiple_partial_captures:
+    status: unknown
+    source: inference
+    source_reference: Название partial в URL не подтверждает несколько подтверждений
+  void_authorization:
+    status: unknown
+    source: bank_document
+    documented_method: HoldReversal
+  partial_refund:
+    status: unknown
+    source: bank_document
+    documented_method: Refund
+  multiple_refunds:
+    status: unknown
+    source: inference
+    source_reference: Нет договора и теста на повторные partial refund одного ExtId
+  sbp_dynamic_qr:
+    status: unknown
+    source: bank_document
+    documented_method: SbpRegisterQR
+  setup_card:
+    status: unknown
+    source: bank_document
+    documented_method: BindCard
+  merchant_initiated_saved_payment:
+    status: unknown
+    source: bank_document
+    documented_method: RegisterDirectOrderFromRegisteredCard
+  status_by_reference:
+    status: unknown
+    source: bank_document
+    documented_method: GetOrderState
+  signed_callbacks:
+    status: unknown
+    source: bank_document
+    source_reference: Callback Service упоминается, но формат и подтверждение подлинности требуют документа
+  reconciliation_feed:
+    status: unknown
+    source: bank_document
+    source_reference: Есть сведения о реестрах/выписках, не доказаны полнота и доступ терминала
+  provider_idempotent_replay:
+    status: unknown
+    source: inference
+    source_reference: Уникальность ExtId не является доказательством безопасного повтора финансовых команд
+operations:
+  debit_card:
+    documented: true
+    method: RegisterOrderFromUnregisteredCard
+    path: /api/v1/card/unregistered/debit
+    request_reference: ExtId
+    amount_field: Amount
+    current_status_rule: not_verified
+  authorize_card:
+    documented: true
+    method: Hold
+    path: /api/v1/card/unregistered/hold/register
+    current_status_rule: not_verified
+  capture:
+    documented: true
+    method: HoldConfirm
+    path: /api/v1/card/unregistered/hold/confirm/partial
+    original_operation_reference: ExtId
+    amount_field: amount
+    may_release_uncaptured_amount: unknown
+    supports_more_than_one_capture: unknown
+    current_status_rule: not_verified
+  void:
+    documented: true
+    method: HoldReversal
+    path: /api/v1/card/unregistered/hold/reversal/partial
+    original_operation_reference: ExtID
+    amount_field: Amount
+    current_status_rule: not_verified
+  refund:
+    documented: true
+    method: Refund
+    path: /api/v1/card/unregistered/debit/refund
+    original_operation_reference: ExtId
+    amount_field: amount
+    independent_bank_refund_reference: unknown
+    duplicate_request_effect: unknown
+    current_status_rule: not_verified
+  reverse:
+    documented: true
+    method: Reverse
+    path: /api/v1/card/unregistered/debit/reverse
+    original_operation_reference: ExtId
+    applicability_after_clearing: unknown
+  debit_sbp_qr:
+    documented: true
+    method: SbpRegisterQR
+    path: /api/v1/sbp/register/qrc
+    request_reference: ExtId
+    amount_field: Amount
+    static_qr_supported_by_collected_example: false
+    example_qr_expiration_minutes: 15
+    actual_ttl_policy: unknown
+    current_status_rule: not_verified
+  debit_saved_card:
+    documented: true
+    method: RegisterDirectOrderFromRegisteredCard
+    path: /api/v1/card/registered/direct
+    request_reference: ExtId
+    token_field: CardRefID
+    token_scope: tkb_provider_only_until_confirmed
+    initiator_compliance: unknown
+  setup_card:
+    documented: true
+    method: BindCard
+    path: /api/v1/card/unregistered/bind
+    current_status_rule: not_verified
+  lookup:
+    documented: true
+    method: GetOrderState
+    path: /api/v1/order/state
+    lookup_reference: ExtID
+    min_poll_interval_seconds_from_example_comment: 60
+    actual_contractual_limit: unconfirmed
+    not_found_is_final: unconfirmed
+  dualstage_sbp:
+    documented: true
+    methods:
+      - SbpCheck
+      - SbpConfirm
+    mapping_to_card_capture: forbidden_without_bank_confirmation
+safety:
+  bank_http_500_maps_to: unknown
+  timeout_after_possible_send_maps_to: unknown
+  negative_lookup_without_bank_guarantee_maps_to: not_found_nonfinal
+  unknown_blocks_rerouting: true
+  browser_return_does_not_confirm_payment: true
+  hold_remainder_after_partial_capture: unverified
+  stored_card_token_migration_to_other_acquirers: not_guaranteed
+  callbacks_unverified_must_not_change_financial_state: true
+open_questions:
+  - extent_and_uniqueness_of_ExtId_for_modifications
+  - authoritative_status_dictionary_and_completion_rules
+  - safe_retries_per_mutating_method
+  - terminal_contractual_capabilities
+  - partial_capture_and_partial_refund_semantics
+  - webhook_authenticity_and_format
+  - reconciliation_reports_and_links
+  - acquiring_for_self_employed_without_IP
+  - dynamic_qr_expiration_and_reversal

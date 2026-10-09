@@ -1,0 +1,1708 @@
+# BR-01, BR-02, BR-02.1 и BR-03.1 согласованы 2026-10-09; BR-03.2—BR-06 на обсуждении.
+openapi: 3.1.0
+info:
+  title: Unified Payments API — proposed contract v0.6 (BR-01/BR-02/BR-02.1/BR-03.1 approved)
+  version: 0.6.0-draft
+  summary: Единый API независимого платёжного процессинга для российских продавцов.
+  description: |-
+    ПРОЕКТ API. Заказчиком 2026-10-09 согласованы BR-01, BR-02, BR-02.1 и BR-03.1. BR-01: Payment имеет самостоятельный жизненный цикл; PaymentIntent — необязательная надстройка над последовательными отдельными Payment. Повторы только по действию покупателя, без автоматического переключения банка. BR-02: после срока, предела попыток, отмены продавцом или блокировки по рискам новые Payment внутри Intent запрещены. Финальный неуспешный статус — только после исключения незавершённого финансового эффекта дочерних операций; при позднем доказанном успехе финансовый факт не отбрасывается. BR-02.1: 30 минут (5 минут — 24 часа), 5 попыток (1–10), неизменные настройки при создании Intent, три уровня раскрытия риска. BR-03.1: одно окончательное полное/частичное списание по авторизации в первом выпуске, многократные подтверждения — отдельное расширение. BR-03.2—BR-06 НЕ согласованы. Представление сумм и новые информационные поля API остаются техническими предложениями. Idempotency-Key защищает наш API, но сам по себе не обеспечивает банковскую идемпотентность.
+servers:
+  - url: https://api.example-payments.ru
+    description: Вымышленное имя хоста, только пример
+security:
+  - MerchantBearer: []
+tags:
+  - name: Payments
+    description: Создание и управление платежами
+  - name: PaymentIntents
+    description: 'Необязательные управляемые покупки: последовательные независимые платежи'
+  - name: PaymentIntentSettings
+    description: Настройки управляемых намерений продавца (проект API, отдельное решение по адресам ещё не принято)
+  - name: Refunds
+    description: Полные и частичные возвраты
+  - name: PaymentMethods
+    description: Привязка и сохраненные способы оплаты
+  - name: Customers
+    description: Покупатели отдельного продавца
+  - name: Webhooks
+    description: Исходящие уведомления продавцам
+  - name: Capabilities
+    description: Возможности, доступные авторизованному продавцу
+paths:
+  /v1/payment_intent_settings:
+    get:
+      tags: [PaymentIntentSettings]
+      operationId: getPaymentIntentSettings
+      summary: Получить действующие настройки продавца для новых PaymentIntent
+      description: >-
+        Проект ресурса настроек продавца. Возвращает применяемую сейчас политику,
+        которая НЕ изменяет ранее созданные намерения. Доступ только авторизованному продавцу.
+      responses:
+        '200':
+          description: Действующая настройка для последующих PaymentIntent
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentIntentSettings'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+    patch:
+      tags: [PaymentIntentSettings]
+      operationId: updatePaymentIntentSettings
+      summary: Настроить окно оплаты и число попыток новых PaymentIntent
+      description: >-
+        Проект ресурсного метода. Разрешено только продавцу с полномочием управления настройками.
+        ttl_seconds в диапазоне 300–86400; max_attempts в диапазоне 1–10. Изменения
+        влияют на новые Intent и НЕ изменяют существующие. Изменения должны аудитироваться.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdatePaymentIntentSettingsRequest'}
+            example:
+              ttl_seconds: 1800
+              max_attempts: 5
+      responses:
+        '200':
+          description: Настройки сохранены для будущих Intent
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentIntentSettings'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422': {$ref: '#/components/responses/InvalidIntentPolicy'}
+
+  /v1/payment_intents:
+    post:
+      tags: [PaymentIntents]
+      operationId: createPaymentIntent
+      summary: Создать намерение оплатить покупку
+      description: >-
+        Создаёт PaymentIntent без немедленного банковского платежа. Срок жизни задаётся явно в допустимых настройках
+        или определяется действующей политикой продавца: 30 минут по умолчанию, допустимо 5 минут — 24 часа.
+        Предел попыток определяется сохранённой политикой продавца: 5 по умолчанию, допустимо 1–10;
+        средства списываются только отдельными дочерними Payment.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreatePaymentIntentRequest'}
+            example:
+              order_id: order-5821
+              amount: 125000
+              currency: RUB
+              capture_method: automatic
+              return_url: https://shop.example/result
+              expires_at: '2026-10-09T07:30:00Z'
+      responses:
+        '201':
+          description: Намерение создано без платежа, требует выбора способа и подтверждения
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentIntent'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+        '422':
+          $ref: '#/components/responses/InvalidIntentPolicy'
+    get:
+      tags: [PaymentIntents]
+      operationId: listPaymentIntents
+      summary: Получить намерения продавца
+      parameters:
+        - name: order_id
+          in: query
+          schema: {type: string}
+        - name: status
+          in: query
+          schema: {$ref: '#/components/schemas/PaymentIntentStatus'}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: cursor
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: Сохранённые намерения данного продавца, без синхронного вызова банка
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, has_more]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/PaymentIntent'}
+                  has_more: {type: boolean}
+                  next_cursor: {type: [string, 'null']}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /v1/payment_intents/{intentId}:
+    parameters:
+      - $ref: '#/components/parameters/PaymentIntentId'
+    get:
+      tags: [PaymentIntents]
+      operationId: getPaymentIntent
+      summary: Состояние намерения и ссылки на платежи
+      description: Только сохранённое состояние процессинга; не обращается к банку синхронно.
+      responses:
+        '200':
+          description: Намерение
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentIntent'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /v1/payment_intents/{intentId}/confirm:
+    parameters:
+      - $ref: '#/components/parameters/PaymentIntentId'
+    post:
+      tags: [PaymentIntents]
+      operationId: confirmPaymentIntent
+      summary: По действию покупателя начать очередной самостоятельный платёж
+      description: |-
+        Только по действию покупателя: создать ровно один новый дочерний Payment. При новом Idempotency-Key проверить атомарно can_confirm, срок действия, лимит начатых банковских попыток, запрет по рискам, запрос отмены, отсутствие активного/неопределённого ребёнка. Нарушение -> 409 без отправки в банк; недопустимый метод -> 422. Повтор прежнего Idempotency-Key с тем же телом возвращает исходный результат и тот же дочерний Payment, даже если текущий Intent теперь закрыт; это НЕ новая попытка. Сама отметка can_confirm является снимком состояния и повторно проверяется во время записи. Автоматических повторов и переключения банка после отказа нет.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ConfirmPaymentIntentRequest'}
+            example:
+              payment_method: {type: card}
+              return_url: https://shop.example/result
+      responses:
+        '200':
+          description: Возвращено намерение; дочерняя оплата могла быть подтверждена синхронно
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentIntent'}
+        '202':
+          description: Дочерний платёж создан, банк обрабатывает или требуется действие покупателя
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentIntent'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unsupported'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '429': {$ref: '#/components/responses/TooManyRequests'}
+  /v1/payment_intents/{intentId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/PaymentIntentId'
+    post:
+      tags: [PaymentIntents]
+      operationId: cancelPaymentIntent
+      summary: Запросить безопасную отмену намерения
+      description: |-
+        Продавец запрашивает отмену Intent и сразу запрещает новые confirm. Если ни один дочерний платёж не имеет активного/неизвестного финансового эффекта, Intent становится canceled. Если есть неопределённость или холд, Intent остаётся processing/requires_capture по фактическому состоянию до безопасного закрытия; нельзя выводить canceled только из HTTP-ответа на запрос отмены. Если банк позднее подтверждает списание, деньги учитываются; стратегия возврата и исполнения заказа — открытое BR-05. Уже succeeded нельзя отменить как неоплаченный; для возвращения средств используют Refund.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Итоговое или текущее подтверждённое состояние
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentIntent'}
+        '202':
+          description: Отмена инициирована; окончательный банковский результат не известен
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PaymentIntent'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /v1/payment_intents/{intentId}/payments:
+    parameters:
+      - $ref: '#/components/parameters/PaymentIntentId'
+    get:
+      tags: [PaymentIntents]
+      operationId: listPaymentIntentPayments
+      summary: История самостоятельных платежей намерения
+      description: >-
+        Возвращает только дочерние Payment этого намерения, включая окончательные отказы.
+        Вызов не инициирует никаких банковских операций.
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: cursor
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: Платежи намерения по времени создания
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, has_more]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/Payment'}
+                  has_more: {type: boolean}
+                  next_cursor: {type: [string, 'null']}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+  /v1/payments:
+    post:
+      tags: [Payments]
+      operationId: createPayment
+      summary: Создать платёж
+      description: |
+        Прямой режим: создаёт один самостоятельный Payment (payment_intent_id=null).
+        При confirm=false: requires_confirmation, если способ выбран, либо requires_payment_method
+        если первоначальный способ пока отсутствует. При confirm=true нужен payment_method.
+        После первой банковской отправки нельзя менять выбранный способ и запускать новую оплату внутри Payment.
+        В состоянии failed / canceled / expired Payment терминален; для повтора создайте новый Payment.
+        Платежи с одним order_id не становятся автоматически одним PaymentIntent.
+        HTTP 201/202 не доказывает оплату; нужно учитывать Payment.status.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreatePaymentRequest'}
+            example:
+              order_id: order-5821
+              amount: 125000
+              currency: RUB
+              capture_method: automatic
+              confirm: true
+              payment_method:
+                type: card
+              return_url: https://shop.example/checkout/result
+              metadata:
+                cart: '5821'
+      responses:
+        '201':
+          description: Платёж создан; статус может быть промежуточным
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Payment'}
+        '202':
+          description: Создание сохранено; банковский результат этой оплаты может быть неизвестен
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Payment'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unsupported'}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      tags: [Payments]
+      operationId: listPayments
+      summary: Получить платежи продавца
+      parameters:
+        - name: order_id
+          in: query
+          schema: {type: string}
+        - name: status
+          in: query
+          schema: {$ref: '#/components/schemas/PaymentStatus'}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+        - name: cursor
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: Список платежей, полученный из нашей системы
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, has_more]
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/Payment'}}
+                  has_more: {type: boolean}
+                  next_cursor: {type: [string, 'null']}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/payments/{paymentId}:
+    parameters:
+      - $ref: '#/components/parameters/PaymentId'
+    get:
+      tags: [Payments]
+      operationId: getPayment
+      summary: Получить состояние платежа
+      description: Возвращает зафиксированное состояние процессинга; не инициирует новый запрос к банку.
+      responses:
+        '200':
+          description: Платёж
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Payment'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/payments/{paymentId}/confirm:
+    parameters:
+      - $ref: '#/components/parameters/PaymentId'
+    post:
+      tags: [Payments]
+      operationId: confirmPayment
+      summary: Инициировать подтверждение созданного платежа
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Текущее состояние платежа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Payment'}
+        '202':
+          description: Инициирование находится в обработке
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Payment'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmPaymentRequest'
+      description: "Только ПЕРВОЕ подтверждение ранее созданного Payment (без уже инициированной независимой оплаты).\n\
+        Если Payment создан без payment_method, при первоначальном подтверждении допускается его указать.\nПосле
+        отправки в банк способ оплаты в этом Payment не заменяется. При failed — 409;\nновую покупательскую попытку
+        делайте отдельным Payment через PaymentIntent либо напрямую.\nТехнический повтор с прежним Idempotency-Key
+        не создаёт вторую отправку.\n"
+  /v1/payments/{paymentId}/capture:
+    parameters:
+      - $ref: '#/components/parameters/PaymentId'
+    post:
+      tags: [Payments]
+      operationId: capturePayment
+      summary: Подтвердить списание по ранее авторизованной сумме
+      description: "Разрешено только при requires_capture и достаточной свободной сумме.\nЗапрос возвращает отдельную
+        финансовую операцию; платёж проверяется через GET /payments/{id}.\nОдин успешный окончательный полный или частичный capture — правило v1. final_capture=false в v1 отклоняется независимо от возможностей банка. Банк/терминал должен поддерживать частичное списание; запрещена имитация полным списанием с возвратом. Новый capture допускается только после доказанного отсутствия эффекта прежней команды и при сохранении действующего холда; pending/unknown блокируют новые команды.\n"
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptureRequest'
+      responses:
+        '200':
+          description: Финансовая операция подтверждена окончательно (по политике доказательств банка)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOperation'
+        '202':
+          description: Операция создана и обрабатывается; результат уточняется асинхронно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOperation'
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unsupported'}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/payments/{paymentId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/PaymentId'
+    post:
+      tags: [Payments]
+      operationId: cancelPayment
+      summary: Отменить платёж или незавершенную авторизацию
+      description: "До первого успешного debit/capture отменяет платёж, в ручном режиме — освобождает холд через
+        void.\nЕсли отмена не подтверждена, Payment остаётся processing. При уже полученной оплате использовать
+        Refund.\n"
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Текущее состояние платежа
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Payment'}
+        '202':
+          description: Отмена в обработке
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Payment'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/refunds:
+    post:
+      tags: [Refunds]
+      operationId: createRefund
+      summary: Создать возврат
+      description: "Создаёт отдельный возврат и атомарно резервирует доступную сумму; банк не должен вызываться
+        дважды\nна основании повторного ключа. Отсутствие amount — вся свободная на момент создания сумма.\nРесурс
+        Refund сохраняет результат независимо от Payment.status.\n"
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateRefundRequest'}
+      responses:
+        '201':
+          description: Возврат создан
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Refund'}
+        '202':
+          description: Возврат принят, банк ещё обрабатывает
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Refund'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '422': {$ref: '#/components/responses/Unsupported'}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/refunds/{refundId}:
+    get:
+      tags: [Refunds]
+      operationId: getRefund
+      summary: Получить состояние возврата
+      parameters:
+        - name: refundId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Возврат
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Refund'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      description: Не отправляет новый запрос банку; возвращает последнюю достоверную проекцию возврата.
+  /v1/setup_sessions:
+    post:
+      tags: [PaymentMethods]
+      operationId: createSetupSession
+      summary: Начать привязку способа оплаты без покупки
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateSetupSessionRequest'}
+      responses:
+        '201':
+          description: Сессия привязки создана
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SetupSession'}
+        '202':
+          description: Проверка способа оплаты ещё продолжается
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SetupSession'}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/setup_sessions/{setupId}:
+    get:
+      tags: [PaymentMethods]
+      operationId: getSetupSession
+      summary: Получить состояние привязки
+      parameters:
+        - name: setupId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Сессия привязки
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SetupSession'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/payment_methods/{paymentMethodId}:
+    delete:
+      tags: [PaymentMethods]
+      operationId: deletePaymentMethod
+      summary: Отозвать сохранённый способ оплаты
+      description: Отключает использование в нашей системе и инициирует удаление в банках, где это 
+        поддерживается.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: paymentMethodId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '202':
+          description: Удаление в обработке
+        '204':
+          description: Способ оплаты удалён или уже отключен
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/payments/{paymentId}/operations:
+    get:
+      tags: [Payments]
+      operationId: listPaymentOperations
+      summary: Финансовые операции по платежу
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: История авторизаций, списаний и возвратов
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/PaymentOperation'}}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/customers:
+    post:
+      tags: [Customers]
+      operationId: createCustomer
+      summary: Зарегистрировать покупателя продавца
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [external_id]
+              properties:
+                external_id: {type: string, maxLength: 128}
+                email: {type: string, format: email}
+      responses:
+        '201':
+          description: Покупатель создан
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Customer'}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/customers/{customerId}:
+    get:
+      tags: [Customers]
+      operationId: getCustomer
+      summary: Получить покупателя
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Покупатель
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Customer'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/payment_methods:
+    get:
+      tags: [PaymentMethods]
+      operationId: listPaymentMethods
+      summary: Получить сохраненные способы оплаты покупателя
+      parameters:
+        - name: customer_id
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Способы оплаты в области видимости продавца
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/PaymentMethod'}}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /v1/webhook_endpoints:
+    post:
+      tags: [Webhooks]
+      operationId: createWebhookEndpoint
+      summary: Зарегистрировать адрес уведомлений
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [url, event_types]
+              properties:
+                url: {type: string, format: uri, description: Только HTTPS адрес продавца}
+                event_types:
+                  type: array
+                  uniqueItems: true
+                  items: {type: string}
+      responses:
+        '201':
+          description: Endpoint создан; секрет подписи выдается отдельной защищённой процедурой
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WebhookEndpoint'}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      description: "Подписка на события. В прямом режиме исполняйте заказ по payment.succeeded;\nв управляемом —
+        по payment_intent.succeeded. События дочерних Payment содержат\npayment_intent_id; подписка на оба семейства
+        возможна, но требует защиты от\nдвойного исполнения заказа. event_id нужен для дедупликации доставок.\n\
+        Возможные типы: payment.succeeded, payment.failed, payment.requires_action,\npayment_intent.requires_payment_method,
+        payment_intent.requires_action,\npayment_intent.processing, payment_intent.requires_capture,\npayment_intent.succeeded,
+        payment_intent.failed, payment_intent.canceled,\npayment_intent.expired, refund.succeeded, refund.failed,
+        refund.reversed.\n"
+  /v1/capabilities:
+    get:
+      tags: [Capabilities]
+      operationId: getCapabilities
+      summary: Доступные способы оплаты и функции продавца
+      responses:
+        '200':
+          description: Возможности активных банковских подключений
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Capabilities'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+        - name: outlet_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Уточнить доступность для конкретного магазина/витрины; без параметра — общая область 
+            продавца.
+      description: "Функции вычисляются по действующим банковским подключениям и условиям продавца.\nЕсли вернулось
+        partial_capture=true, маршрутизация обязана выбрать банк, поддерживающий её;\nнельзя выбрать банк без этой
+        возможности. Состояние unknown внутри банка не показывается как поддержка.\n"
+  /v1/payments/{paymentId}/operations/{operationId}:
+    parameters:
+      - $ref: '#/components/parameters/PaymentId'
+      - name: operationId
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags:
+        - Payments
+      operationId: getPaymentOperation
+      summary: Получить состояние одной финансовой операции
+      responses:
+        '200':
+          description: Операция и её подтверждённое состояние
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOperation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    MerchantBearer:
+      type: http
+      scheme: bearer
+      description: Серверный ключ конкретного продавца с ограниченными правами
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: "Уникальный ключ в области (merchant, команда, идентификатор ресурса при наличии).\nТот же ключ
+        + те же параметры возвращает исходный ресурс; изменённые параметры — 409.\nДля PaymentIntent.confirm новый
+        покупательский выбор после доказанного отказа требует\nНОВЫЙ ключ. Повтор прежнего ключа возвращает того
+        же дочернего Payment.\nБанковская идемпотентность отдельно проверяется для каждого метода.\nПовторная выдача
+        результата изменяющего запроса может возвращать сохранённую исходную\nрепрезентацию; актуальное состояние
+        получают отдельным GET."
+      schema: {type: string, minLength: 8, maxLength: 128}
+    PaymentId:
+      name: paymentId
+      in: path
+      required: true
+      schema: {type: string}
+    PaymentIntentId:
+      name: intentId
+      in: path
+      required: true
+      description: Наш ID управляемого намерения внутри области продавца
+      schema: {type: string}
+  schemas:
+    PaymentStatus:
+      type: string
+      enum:
+        - requires_payment_method
+        - requires_confirmation
+        - requires_action
+        - processing
+        - requires_capture
+        - succeeded
+        - failed
+        - canceled
+        - expired
+      description: "requires_payment_method означает только первоначальный выбор способа в ещё не начатом Payment;\n\
+        failed окончателен для Payment. Управляемые повторы отражает PaymentIntent.status."
+    PaymentMethodRequest:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [type]
+          properties:
+            type: {const: card}
+        - type: object
+          additionalProperties: false
+          required: [type]
+          properties:
+            type: {const: sbp}
+            qr_format:
+              type: string
+              enum:
+                - dynamic
+              default: dynamic
+              description: Базовый публичный сценарий только с динамическим QR. Для иных QR потребуется 
+                подтверждённый профиль.
+        - type: object
+          additionalProperties: false
+          required: [type, id]
+          properties:
+            type: {const: saved}
+            id: {type: string, description: Наш идентификатор сохраненного способа оплаты}
+        - type: object
+          additionalProperties: false
+          required: [type, wallet]
+          properties:
+            type: {const: wallet}
+            wallet: {type: string, description: Поддерживаемый поставщик кошелька}
+    CreatePaymentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - order_id
+        - amount
+        - currency
+      properties:
+        order_id: {type: string, maxLength: 128}
+        amount:
+          $ref: '#/components/schemas/PositiveAmount'
+        description: {type: string, maxLength: 500}
+        outlet_id: {type: string}
+        customer_id: {type: string}
+        capture_method: {type: string, enum: [automatic, manual], default: automatic}
+        confirm: {type: boolean, default: false}
+        payment_method: {$ref: '#/components/schemas/PaymentMethodRequest', description: При confirm=true 
+            обязателен. При confirm=false может быть выбран позднее.}
+        off_session: {type: boolean, default: false}
+        save_for_future_use:
+          type: string
+          enum: [on_session, off_session]
+          description: Сохранить способ оплаты после успешного платежа и подтверждения согласия
+        consent_reference:
+          type: string
+          description: Ссылка на зафиксированное согласие плательщика
+        return_url: {type: string, format: uri}
+        metadata:
+          type: object
+          maxProperties: 30
+          additionalProperties: {type: string, maxLength: 500}
+        currency:
+          $ref: '#/components/schemas/Currency'
+      allOf:
+        - if:
+            properties:
+              confirm:
+                const: true
+            required:
+              - confirm
+          then:
+            required:
+              - payment_method
+      description: "Создать одну самостоятельную оплату. В прямом режиме Payment не имеет PaymentIntent;\nдочерние
+        платежи намерения создаются только через POST /payment_intents/{id}/confirm.\nПовторная покупательская оплата
+        после failed — новый Payment, а не новый payment_method.\nВозврат браузера по return_url не подтверждает
+        финансовый успех.\n"
+    NextAction:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [type, url]
+          properties:
+            type: {const: redirect}
+            url: {type: string, format: uri}
+        - type: object
+          additionalProperties: false
+          required: [type, payload]
+          properties:
+            type: {const: display_qr}
+            payload: {type: string}
+            expires_at: {type: string, format: date-time}
+        - type: object
+          additionalProperties: false
+          required: [type, action]
+          properties:
+            type: {const: sdk_action}
+            action: {type: string}
+    Payment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - order_id
+        - status
+        - currency
+        - amounts
+        - capture_method
+        - created_at
+        - updated_at
+        - payment_intent_id
+      properties:
+        id: {type: string, readOnly: true}
+        order_id: {type: string}
+        status: {$ref: '#/components/schemas/PaymentStatus'}
+        capture_method: {type: string, enum: [automatic, manual]}
+        payment_method_type: {type: [string, 'null']}
+        saved_payment_method_id: {type: [string, 'null']}
+        next_action:
+          oneOf:
+            - {$ref: '#/components/schemas/NextAction'}
+            - {type: 'null'}
+        last_error:
+          oneOf:
+            - {$ref: '#/components/schemas/Error'}
+            - {type: 'null'}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        currency:
+          $ref: '#/components/schemas/Currency'
+        amounts:
+          $ref: '#/components/schemas/PaymentAmounts'
+        processing:
+          oneOf:
+            - $ref: '#/components/schemas/ProcessingInfo'
+            - type: 'null'
+          description: Если status=processing — причина ожидания; неизвестный финансовый результат не равен 
+            отказу.
+        metadata:
+          type: object
+          maxProperties: 30
+          additionalProperties:
+            type: string
+            maxLength: 500
+        payment_intent_id:
+          type:
+            - string
+            - 'null'
+          readOnly: true
+          description: Связь с PaymentIntent, если Payment создан в управляемом режиме. Прямой Payment имеет 
+            null. Связь неизменна.
+      example:
+        id: pay_example
+        order_id: order-5821
+        status: succeeded
+        currency: RUB
+        capture_method: manual
+        amounts:
+          requested: 100000
+          authorized: 100000
+          captured: 60000
+          paid: 60000
+          released: 40000
+          refunded: 20000
+          capture_reserved: 0
+          refund_reserved: 0
+          capturable: 0
+          refundable: 40000
+        created_at: '2026-10-09T07:00:00Z'
+        updated_at: '2026-10-09T07:15:00Z'
+        payment_method_type: card
+        next_action:
+        payment_intent_id:
+      allOf:
+        - if:
+            properties:
+              status:
+                const: processing
+            required:
+              - status
+          then:
+            required:
+              - processing
+            properties:
+              processing:
+                $ref: '#/components/schemas/ProcessingInfo'
+        - if:
+            properties:
+              status:
+                const: requires_action
+            required:
+              - status
+          then:
+            required:
+              - next_action
+            properties:
+              next_action:
+                $ref: '#/components/schemas/NextAction'
+      description: "Одна самостоятельная оплата. Даже в управляемом режиме один Payment не допускает\nнового финансового
+        платежа через другой банк после failed. Отдельные capture/refund —\nфинансовые операции этого Payment. PaymentIntent
+        агрегирует разные Payment.\n"
+    CreateRefundRequest:
+      type: object
+      additionalProperties: false
+      required: [payment_id]
+      properties:
+        payment_id: {type: string}
+        amount:
+          $ref: '#/components/schemas/PositiveAmount'
+        reason: {type: string, enum: [requested_by_customer, duplicate, fraudulent, other]}
+        metadata:
+          type: object
+          maxProperties: 20
+          additionalProperties: {type: string, maxLength: 500}
+      description: Отсутствие amount означает весь свободный refundable на момент атомарной фиксации запроса. 
+        Всегда в валюте Payment.
+    Refund:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - payment_id
+        - amount
+        - currency
+        - status
+        - created_at
+      properties:
+        id: {type: string}
+        payment_id: {type: string}
+        amount:
+          $ref: '#/components/schemas/PositiveAmount'
+        status:
+          $ref: '#/components/schemas/RefundStatus'
+        failure_reason: {type: [string, 'null']}
+        created_at: {type: string, format: date-time}
+        currency:
+          $ref: '#/components/schemas/Currency'
+        processing:
+          oneOf:
+            - $ref: '#/components/schemas/ProcessingInfo'
+            - type: 'null'
+        updated_at:
+          type: string
+          format: date-time
+      description: Состояние возврата независимо от Payment.status; поздняя корректировка reflected as 
+        reversed с компенсирующим финансовым событием.
+      example:
+        id: rf_example
+        payment_id: pay_example
+        amount: 20000
+        currency: RUB
+        status: pending
+        created_at: '2026-10-09T07:00:00Z'
+    CreateSetupSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [customer_id, type, usage, return_url]
+      properties:
+        customer_id: {type: string}
+        type:
+          type: string
+          enum:
+            - card
+          description: Привязка СБП-счёта не входит в этот проект выпуска; потребует отдельного сценария.
+        usage: {type: string, enum: [on_session, off_session]}
+        return_url: {type: string, format: uri}
+        consent_reference:
+          type: string
+          description: Идентификатор подтвержденного согласия клиента, не текст согласия
+    SetupSession:
+      type: object
+      additionalProperties: false
+      required: [id, status, customer_id, type]
+      properties:
+        id: {type: string}
+        status: {type: string, enum: [requires_action, processing, succeeded, failed, canceled]}
+        customer_id: {type: string}
+        type:
+          type: string
+          enum:
+            - card
+        payment_method_id: {type: [string, 'null']}
+        next_action:
+          oneOf:
+            - {$ref: '#/components/schemas/NextAction'}
+            - {type: 'null'}
+    Customer:
+      type: object
+      additionalProperties: false
+      required: [id, external_id]
+      properties:
+        id: {type: string}
+        external_id: {type: string}
+        email: {type: string, format: email}
+    PaymentMethod:
+      type: object
+      additionalProperties: false
+      required: [id, customer_id, type, status]
+      properties:
+        id: {type: string}
+        customer_id: {type: string}
+        type:
+          type: string
+          enum:
+            - card
+        status: {type: string, enum: [active, suspended, revoked]}
+        card:
+          type: object
+          additionalProperties: false
+          properties:
+            brand: {type: string}
+            last4: {type: string, minLength: 4, maxLength: 4}
+            exp_month: {type: integer, minimum: 1, maximum: 12}
+            exp_year: {type: integer}
+    PaymentOperation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - payment_id
+        - type
+        - status
+        - amount
+        - currency
+        - created_at
+      properties:
+        id: {type: string}
+        payment_id: {type: string}
+        type:
+          type: string
+          enum:
+            - debit
+            - authorize
+            - capture
+            - void
+            - refund
+          description: debit — одна прямая оплата картой/СБП без фиктивного capture.
+        status:
+          $ref: '#/components/schemas/PublicOperationStatus'
+        amount:
+          $ref: '#/components/schemas/PositiveAmount'
+        created_at: {type: string, format: date-time}
+        currency:
+          $ref: '#/components/schemas/Currency'
+        processing:
+          oneOf:
+            - $ref: '#/components/schemas/ProcessingInfo'
+            - type: 'null'
+        refund_id:
+          type:
+            - string
+            - 'null'
+        updated_at:
+          type: string
+          format: date-time
+    WebhookEndpoint:
+      type: object
+      additionalProperties: false
+      required: [id, url, event_types, status]
+      properties:
+        id: {type: string}
+        url: {type: string, format: uri}
+        event_types: {type: array, items: {type: string}}
+        status: {type: string, enum: [active, disabled]}
+    Capabilities:
+      type: object
+      additionalProperties: false
+      required:
+        - assessed_at
+        - methods
+      properties:
+        assessed_at:
+          type: string
+          format: date-time
+        outlet_id:
+          type:
+            - string
+            - 'null'
+        methods:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/MethodCapability'
+      description: Включает только подтверждённые права продавца и активные пригодные маршруты. unknown у 
+        банка никогда не публикуется как available=true.
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, request_id]
+      properties:
+        code: {type: string, example: invalid_payment_state}
+        message: {type: string}
+        request_id: {type: string}
+        retryable: {type: boolean, description: Разрешён повтор НАШЕГО запроса с тем же Idempotency-Key; не 
+            является разрешением создать новую банковскую попытку.}
+        details:
+          type: object
+          additionalProperties: true
+    Currency:
+      type: string
+      enum:
+        - RUB
+      description: В v1 только RUB; суммы целочисленные, в копейках.
+    PositiveAmount:
+      type: integer
+      minimum: 1
+      maximum: 9007199254740991
+      description: Положительная сумма в копейках для RUB. Верхняя граница не допускает потери точности в JS.
+    NonNegativeAmount:
+      type: integer
+      minimum: 0
+      maximum: 9007199254740991
+      description: Неотрицательная сумма в копейках для RUB.
+    PaymentAmounts:
+      type: object
+      additionalProperties: false
+      description: >-
+        Снимок сумм одного платежа на момент чтения. Все в payment.currency.
+        Не является журналом проводок. released отражается после достаточного
+        подтверждения освобождения остатка банком, а не по одной арифметической разности.
+      required:
+        - requested
+        - authorized
+        - captured
+        - paid
+        - released
+        - refunded
+        - capture_reserved
+        - refund_reserved
+        - capturable
+        - refundable
+      properties:
+        requested:
+          $ref: '#/components/schemas/PositiveAmount'
+        authorized:
+          $ref: '#/components/schemas/NonNegativeAmount'
+        captured:
+          $ref: '#/components/schemas/NonNegativeAmount'
+        paid:
+          $ref: '#/components/schemas/NonNegativeAmount'
+        released:
+          $ref: '#/components/schemas/NonNegativeAmount'
+        refunded:
+          $ref: '#/components/schemas/NonNegativeAmount'
+        capture_reserved:
+          $ref: '#/components/schemas/NonNegativeAmount'
+        refund_reserved:
+          $ref: '#/components/schemas/NonNegativeAmount'
+        capturable:
+          $ref: '#/components/schemas/NonNegativeAmount'
+        refundable:
+          $ref: '#/components/schemas/NonNegativeAmount'
+    ProcessingInfo:
+      type: object
+      additionalProperties: false
+      required:
+        - reason
+        - since
+      properties:
+        reason:
+          type: string
+          enum:
+            - provider_pending
+            - provider_result_unknown
+            - capture_pending
+            - cancel_pending
+            - awaiting_confirmation
+            - reconciliation_required
+        since:
+          type: string
+          format: date-time
+    ConfirmPaymentRequest:
+      type: object
+      additionalProperties: false
+      description: "Указать исходный способ оплаты / адрес возврата до ПЕРВОЙ банковской инициации данного Payment.\n\
+        Не используется для создания следующей оплаты после failed: это новый Payment.\n"
+      properties:
+        payment_method:
+          $ref: '#/components/schemas/PaymentMethodRequest'
+        return_url:
+          type: string
+          format: uri
+        off_session:
+          type: boolean
+          default: false
+    CaptureRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - amount
+      properties:
+        amount:
+          $ref: '#/components/schemas/PositiveAmount'
+        final_capture:
+          type: boolean
+          enum: [true]
+          default: true
+          description: >-
+            В первом выпуске только true (полное или частичное ОКОНЧАТЕЛЬНОЕ списание).
+            false зарезервирован на будущее расширение и не разрешается даже у банка,
+            умеющего несколько частичных списаний. Это правило BR-03.1.
+    RefundStatus:
+      type: string
+      enum:
+        - processing
+        - pending
+        - succeeded
+        - failed
+        - reversed
+    PublicOperationStatus:
+      type: string
+      enum:
+        - processing
+        - pending
+        - succeeded
+        - failed
+        - reversed
+      description: Внутренние created/submitted/unknown отражаются публично как processing + 
+        processing.reason.
+    MethodCapability:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - available
+        - currency
+        - capture_modes
+        - partial_capture
+        - multiple_partial_captures
+        - partial_refunds
+        - multiple_refunds
+        - saved_methods
+        - off_session
+      properties:
+        type:
+          type: string
+          enum:
+            - card
+            - sbp
+            - wallet
+        available:
+          type: boolean
+        currency:
+          $ref: '#/components/schemas/Currency'
+        capture_modes:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum:
+              - automatic
+              - manual
+        partial_capture:
+          type: boolean
+        multiple_partial_captures:
+          type: boolean
+          description: >-
+            В публичной модели первого выпуска всегда false: расширение многократных
+            списаний не включено по BR-03.1. Банковская документальная способность
+            хранится в профиле соединителя отдельно от включённости продукта.
+        partial_refunds:
+          type: boolean
+        multiple_refunds:
+          type: boolean
+        saved_methods:
+          type: boolean
+        off_session:
+          type: boolean
+        minimum_amount:
+          $ref: '#/components/schemas/PositiveAmount'
+        maximum_amount:
+          $ref: '#/components/schemas/PositiveAmount'
+        constraints:
+          type: object
+          maxProperties: 20
+          additionalProperties:
+            type:
+              - string
+              - integer
+              - boolean
+              - 'null'
+          description: Ограниченный набор опубликованных бизнес-ограничений без сырых банковских параметров.
+      description: Реально доступные продавцу возможности указанного способа. При маршрутизации выбирается 
+        только соединение, поддерживающее запрошенные функции.
+    PaymentIntentSettings:
+      type: object
+      additionalProperties: false
+      required: [ttl_seconds, max_attempts, revision, updated_at]
+      properties:
+        ttl_seconds:
+          type: integer
+          minimum: 300
+          maximum: 86400
+          default: 1800
+          description: Окно новых дочерних оплат в секундах, не срок карточного холда или QR банка.
+        max_attempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+          description: Число потенциальных банковских отправок (dispatch_started) на одно Intent.
+        revision:
+          type: string
+          readOnly: true
+          description: Непрозрачная версия политики для последующего аудита.
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      example:
+        ttl_seconds: 1800
+        max_attempts: 5
+        revision: settings_rev_1
+        updated_at: '2026-10-09T07:00:00Z'
+    UpdatePaymentIntentSettingsRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        ttl_seconds:
+          type: integer
+          minimum: 300
+          maximum: 86400
+          description: Срок только для новых Intent; допустимо от 5 минут до 24 часов включительно.
+        max_attempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Лимит только для новых Intent. Не может ослаблять общие антифрод-ограничения.
+
+    PaymentIntentStatus:
+      type: string
+      enum:
+        - requires_payment_method
+        - requires_action
+        - processing
+        - requires_capture
+        - succeeded
+        - failed
+        - canceled
+        - expired
+      description: >-
+        requires_payment_method разрешает новый confirm только если can_confirm=true. Истечение срока, исчерпание
+        попыток, отмена и блокировка прекращают право на новую попытку. failed/expired/canceled возможны лишь после
+        исключения незавершённого финансового эффекта. Пока оно не исключено — processing или requires_capture (при
+        подтверждённом холде). BR-02.1: срок по умолчанию 30 минут, лимит по умолчанию 5.
+    CreatePaymentIntentRequest:
+      type: object
+      additionalProperties: false
+      required: [order_id, amount, currency]
+      properties:
+        order_id: {type: string, minLength: 1, maxLength: 128}
+        amount: {$ref: '#/components/schemas/PositiveAmount'}
+        currency: {$ref: '#/components/schemas/Currency'}
+        description: {type: string, maxLength: 500}
+        outlet_id: {type: string}
+        customer_id: {type: string}
+        capture_method: {type: string, enum: [automatic, manual], default: automatic}
+        return_url: {type: string, format: uri}
+        metadata:
+          type: object
+          maxProperties: 30
+          additionalProperties: {type: string, maxLength: 500}
+        expires_at:
+          type: string
+          format: date-time
+          description: Необязательное окончание окна НОВЫХ попыток. Допустимо от 300 до 86400 секунд
+            относительно момента создания Intent включительно; проверяется по политике продавца.
+      description: >-
+        Намерение без платежного инструмента и без банковской отправки. Если expires_at не передан, срок выбирается
+        из конфигурации продавца: базово 1800 секунд (30 минут), разрешённая настройка 300–86400 секунд.
+        Лимит попыток по умолчанию 5 (настройка 1–10) — политика продавца, не поле данного запроса.
+    ConfirmPaymentIntentRequest:
+      type: object
+      additionalProperties: false
+      required: [payment_method]
+      properties:
+        payment_method: {$ref: '#/components/schemas/PaymentMethodRequest'}
+        return_url: {type: string, format: uri}
+        save_for_future_use:
+          type: string
+          enum: [on_session, off_session]
+        consent_reference:
+          type: string
+          maxLength: 256
+      description: >-
+        Вызов осуществляется продавцом после действия покупателя. В результате
+        появляется новый самостоятельный Payment, не новая попытка внутри прежнего.
+        Параметры суммы/валюты/заказа/продавца берутся из самого намерения.
+        Для безучастных регулярных списаний предусмотрен прямой Payment API;
+        автоматические повторы в управляемом режиме не входят в BR-01.
+    PaymentIntent:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - order_id
+        - amount
+        - amount_paid
+        - currency
+        - status
+        - capture_method
+        - payments_count
+        - latest_payment_id
+        - successful_payment_id
+        - created_at
+        - updated_at
+        - expires_at
+        - attempts
+        - can_confirm
+        - closure_reason
+        - policy_revision
+      properties:
+        id: {type: string, readOnly: true}
+        order_id: {type: string}
+        amount: {$ref: '#/components/schemas/PositiveAmount'}
+        currency: {$ref: '#/components/schemas/Currency'}
+        status: {$ref: '#/components/schemas/PaymentIntentStatus'}
+        capture_method: {type: string, enum: [automatic, manual]}
+        payments_count: {type: integer, minimum: 0}
+        latest_payment_id:
+          type: [string, 'null']
+          description: Самый новый дочерний Payment, может быть failed/pending
+        successful_payment_id:
+          type: [string, 'null']
+          description: Дочерний Payment, по которому получен подтверждённый успешный эффект
+        next_action:
+          oneOf:
+            - {$ref: '#/components/schemas/NextAction'}
+            - {type: 'null'}
+          description: Действие активного дочернего платежа, не банка намерения
+        processing:
+          oneOf:
+            - {$ref: '#/components/schemas/ProcessingInfo'}
+            - {type: 'null'}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        metadata:
+          type: object
+          maxProperties: 30
+          additionalProperties: {type: string, maxLength: 500}
+        amount_paid:
+          $ref: '#/components/schemas/NonNegativeAmount'
+          description: Достоверно оплаченная по успешному дочернему Payment сумма до возвратов. При частичном 
+            финальном capture может быть меньше amount; не равна сумме перечисления продавцу.
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Эффективный неизменный срок, после которого новые дочерние платежи начинать нельзя.
+            По умолчанию created_at+30 минут; допускается 5 минут — 24 часа. Не дедлайн банка.
+        policy_revision:
+          type: string
+          readOnly: true
+          description: Идентификатор сохранённого снимка политики, пригодный для расследования; техническое предложение.
+        support_reference:
+          type: [string, 'null']
+          readOnly: true
+          description: Непрозрачный идентификатор обращения к поддержке для продавца; без внутренних причин риска.
+            Не возвращать на публичной платёжной форме покупателя. Обычно присутствует после risk_blocked.
+        attempts:
+          $ref: '#/components/schemas/PaymentIntentAttemptBudget'
+        can_confirm:
+          type: boolean
+          readOnly: true
+          description: Вычисленное право нового confirm в момент ответа, повторно проверяется атомарно при
+            POST и перед возможной банковской отправкой. Может быть false даже при ненулевом remaining.
+        closure_reason:
+          $ref: '#/components/schemas/PaymentIntentClosureReason'
+      description: >-
+        PaymentIntent связывает самостоятельные дочерние Payment. Новая банковская оплата разрешена только при can_confirm=true
+        и действии покупателя. BR-02: закрытие по окну, исчерпанию попыток, отмене продавцом, блокировке по рискам;
+        финальная неуспешность — только после исключения незавершённых финансовых эффектов. Если причина закрытия
+        есть, но исход дочернего платежа неизвестен, can_confirm=false, статус processing, closure_reason=null.
+        Если поздний достоверный успех всё же произошёл, система регистрирует сумму и успешно завершает Intent,
+        а отмену заказа/возврат обрабатывает отдельно по будущему BR-05. Одностадийное/частичное подтверждение авторизации
+        и amount_paid<amount регулируются открытым BR-03.2. BR-02.1: по умолчанию 30 минут (5 минут — 24 часа),
+        5 попыток (1–10); параметры неизменны при создании Intent. Это серверный API продавца:
+        покупателю не передаются closure_reason/risk_blocked, support_reference и внутренние сигналы риска.
+        При продолжающейся проверке риска can_confirm=false, но статус не становится failed преждевременно.
+      example:
+        id: pi_example
+        order_id: order-5821
+        amount: 125000
+        currency: RUB
+        status: requires_payment_method
+        capture_method: automatic
+        payments_count: 1
+        latest_payment_id: pay_declined_example
+        successful_payment_id:
+        next_action:
+        created_at: '2026-10-09T07:00:00Z'
+        updated_at: '2026-10-09T07:02:00Z'
+        amount_paid: 0
+        expires_at: '2026-10-09T07:30:00Z'
+        attempts:
+          used: 1
+          limit: 5
+          remaining: 4
+        policy_revision: settings_rev_1
+        can_confirm: true
+        closure_reason:
+        support_reference:
+    PaymentIntentAttemptBudget:
+      type: object
+      additionalProperties: false
+      required:
+        - used
+        - limit
+        - remaining
+      properties:
+        used:
+          type: integer
+          minimum: 0
+          readOnly: true
+          description: Число банковских попыток, достигших стадии потенциальной отправки (dispatch_started). 
+            Не количество API-запросов.
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 10
+          readOnly: true
+          description: Применённый к намерению неизменный лимит из политики продавца; по умолчанию 5, допустимо 1–10.
+        remaining:
+          type: integer
+          minimum: 0
+          readOnly: true
+          description: Оставшееся число попыток по лимиту без учёта других запретов.
+    PaymentIntentClosureReason:
+      type:
+        - string
+        - 'null'
+      enum:
+        - attempt_limit_reached
+        - payment_window_expired
+        - merchant_canceled
+        - risk_blocked
+        - 
+      description: Причина окончательного закрытия. null — пока не закрыто. При действующем финансовом эффекте
+        закрытие откладывается.
+  responses:
+    Conflict:
+      description: Конфликт состояния или неправильное повторное использование ключа идемпотентности
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unsupported:
+      description: Операция недоступна для подключенного банка/продавца
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    NotFound:
+      description: Объект не найден или не доступен этому продавцу
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    TooManyRequests:
+      description: Ограничение частоты запросов клиента. Не означает отказ/отмену банковской операции.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Некорректный или отсутствующий ключ API
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Нет прав на данную операцию / клиент не активирован
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InvalidIntentPolicy:
+      description: Запрошенный срок оплаты недопустим политикой продавца или действующая политика не 
+        настроена.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

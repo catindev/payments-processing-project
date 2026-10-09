@@ -1,0 +1,479 @@
+title: Проверочные сценарии банковского соединителя
+version: 0.1-draft
+created_at: '2026-10-09'
+run_status: NOT_EXECUTED
+notice: Это тестовые сценарии, не отчёт об исполнении. Перед запуском на стенде проверить банковские права, идемпотентность и 
+  допустимые тестовые операции.
+based_on:
+  - payment-lifecycle-spec-v0.2.md
+  - acquirer-connector-contract-v0.1.md
+  - TKBPAY-v11042025.postman_collection.json
+cases:
+  - id: CT-01
+    title: Действие плательщика
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: submit debit card -> requires_action
+    expected: Payment requires_action, next_action задан; paid=0
+    result: not_run
+  - id: CT-02
+    title: Принятие не равно оплате
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: submit debit -> accepted
+    expected: Операция pending, paid=0, Payment processing
+    result: not_run
+  - id: CT-03
+    title: Одностадийный успех
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: submit debit -> succeeded/paid
+    expected: Один подтверждённый debit; paid=requested; captured=0 для прямой СБП
+    result: not_run
+  - id: CT-04
+    title: Доказанный отказ
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: submit debit -> declined c evidence
+    expected: Отказ без суммы; если разрешено, requires_payment_method
+    result: not_run
+  - id: CT-05
+    title: Тайм-аут после передачи
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: submit debit -> TCP timeout после возможной отправки
+    expected: unknown; резерв сохранён; другой банк не выбирается
+    result: not_run
+  - id: CT-06
+    title: HTTP 500 после передачи
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: submit capture -> HTTP 500 без достаточного свидетельства
+    expected: unknown; не failed и не declined
+    result: not_run
+  - id: CT-07
+    title: Доказанная неотправка
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: локальная ошибка до вызова сети, гарантированно no-send
+    expected: not_dispatched; допускается безопасное исполнение сохранённой команды
+    result: not_run
+  - id: CT-08
+    title: Падение между началом отправки и ответом
+    category: idempotency
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: dispatch_started сохранён, worker упал
+    expected: unknown; отсутствие повторного сетевого вызова без гарантии банка
+    result: not_run
+  - id: CT-09
+    title: Повтор idempotency key
+    category: idempotency
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: два идентичных POST на создание с одним ключом
+    expected: один Payment и одна попытка, повтор возвращает прежний результат
+    result: not_run
+  - id: CT-10
+    title: Конфликт idem-key
+    category: idempotency
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: тот же ключ, но иная сумма
+    expected: 409; новая банковская операция отсутствует
+    result: not_run
+  - id: CT-11
+    title: Гонка с одинаковым ключом
+    category: idempotency
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: два одновременных create_payment
+    expected: один DispatchIntent, один operation_id
+    result: not_run
+  - id: CT-12
+    title: Нельзя повторить из unknown
+    category: idempotency
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: после CT-05 клиент снова подтвердил платёж
+    expected: не создаётся вторая попытка/банк, старый Payment остаётся processing
+    result: not_run
+  - id: CT-13
+    title: Версия возможностей
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: попытка со старым профилем, затем профиль обновлён
+    expected: у попытки сохраняется изначальный capabilities_version
+    result: not_run
+  - id: CT-14
+    title: Старое уведомление
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: позднее событие до уже подтверждённого успеха
+    expected: не понижает статус; событие сохраняется
+    result: not_run
+  - id: CT-15
+    title: Дубликат уведомления
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: два одинаковых verified_callback
+    expected: в журнале один финансовый эффект; доставка дедуплицирована
+    result: not_run
+  - id: CT-16
+    title: Поддельное уведомление
+    category: security
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: 'verifyAndParseNotification: invalid signature'
+    expected: отклонено; никакие суммы и состояния не меняются
+    result: not_run
+  - id: CT-17
+    title: Противоречивые сообщения
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: signed success и signed decline для того же reference
+    expected: создан случай сверки; автоматические рискованные операции заблокированы
+    result: not_run
+  - id: CT-18
+    title: Возврат браузера
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: пользователь открыл return_url до банковского уведомления
+    expected: Payment не succeeded, пока независимого подтверждения нет
+    result: not_run
+  - id: CT-19
+    title: Новая карта + 3DS
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: банк возвращает редирект после create
+    expected: Payment requires_action; созданы корреляции попытки
+    result: not_run
+  - id: CT-20
+    title: 'СБП: динамический QR'
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: debit sbp -> requires_action/display_qr
+    expected: возвращается QR; QR ещё не означает paid
+    result: not_run
+  - id: CT-21
+    title: 'СБП: подтверждённая оплата'
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: банк дал доказанный результат QR платежа
+    expected: paid=requested; captured=0; Payment succeeded
+    result: not_run
+  - id: CT-22
+    title: 'СБП: локальный TTL истёк'
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: локальный таймер QR сработал, ответ банка unknown
+    expected: не объявлять expired; уточнение в том же банке
+    result: not_run
+  - id: CT-23
+    title: Холд подтверждён
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: authorize -> succeeded/authorized
+    expected: requires_capture, capturable=authorized, paid=0
+    result: not_run
+  - id: CT-24
+    title: Полный capture
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: capture всего авторизованного, банк подтвердил эффект
+    expected: paid=captured=requested; Payment succeeded
+    result: not_run
+  - id: CT-25
+    title: Один частичный capture
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: written_confirmation_and_active_test_rights
+    given_when: single_partial_capture подтверждён договором; списать 60 из 100
+    expected: 'после подтверждения: paid=60, released=40, capturable=0; succeeded'
+    result: not_run
+  - id: CT-26
+    title: Лишняя сумма capture
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: capture 110 при авторизованных 100
+    expected: 422 без вызова банка
+    result: not_run
+  - id: CT-27
+    title: Запрещён повторный partial capture
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: первый capture финальный, второй attempt capture
+    expected: отказ до банка, даже если в URL банка есть partial
+    result: not_run
+  - id: CT-28
+    title: Capture неизвестен
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: банк мог выполнить capture, но ответ потерян
+    expected: capture_reserved сохранён; новый capture и void заблокированы
+    result: not_run
+  - id: CT-29
+    title: Capture отказан при действующем холде
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: written_confirmation_and_active_test_rights
+    given_when: банк доказал отсутствие capture; авторизация ещё жива
+    expected: резерв capture снят; Payment processing -> requires_capture
+    result: not_run
+  - id: CT-30
+    title: Отмена холда успешна
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: void -> succeeded/voided и paid=0
+    expected: canceled; сумма авторизации освобождена
+    result: not_run
+  - id: CT-31
+    title: Отмена холда отказана
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: written_confirmation_and_active_test_rights
+    given_when: void однозначно не выполнен; действующий холд подтверждён
+    expected: Payment processing -> requires_capture; можно выбрать дальнейшее действие
+    result: not_run
+  - id: CT-32
+    title: Конкурентные capture и void
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: оба запроса пришли к одному холду параллельно
+    expected: один проходит атомарные условия, второй получает конфликт
+    result: not_run
+  - id: CT-33
+    title: Частичный возврат
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: paid=100, refund=30, подтверждён
+    expected: refunded=30, refundable=70; Payment succeeded
+    result: not_run
+  - id: CT-34
+    title: Множественный возврат
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: written_confirmation_and_active_test_rights
+    given_when: 'банк поддерживает несколько refund: 30 и 20'
+    expected: два Refund с разными ID, net refunded=50
+    result: not_run
+  - id: CT-35
+    title: Конкуренция возвратов
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: paid=100, одновременно refund 70 и refund 70
+    expected: не принимаются оба; refund_reserved<=100
+    result: not_run
+  - id: CT-36
+    title: Возврат принят, ещё не выполнен
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: refund -> accepted
+    expected: Refund pending; refunded не вырос, refund_reserved удержан
+    result: not_run
+  - id: CT-37
+    title: Возврат с неизвестным результатом
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: refund timeout после возможной отправки
+    expected: Refund processing; сохраняется зарезервированная сумма
+    result: not_run
+  - id: CT-38
+    title: Поздний отзыв возврата
+    category: money
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: refund succeeded, затем подтверждённое reversal
+    expected: Refund reversed; компенсирующая запись; net refunded уменьшен
+    result: not_run
+  - id: CT-39
+    title: TKB refund с исходным ExtId
+    category: idempotency
+    bank_scope: tkb
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: written_confirmation_and_active_test_rights
+    given_when: refund request содержит ExtId оплаченной операции
+    expected: наш refund operation_id независим, банк не считается идемпотентным
+    result: not_run
+  - id: CT-40
+    title: TKB lookup ограничение частоты
+    category: lifecycle
+    bank_scope: tkb
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: written_confirmation_and_active_test_rights
+    given_when: два запроса статуса того же reference за 30 секунд
+    expected: не делать второй сетевой вызов; использовать локально кешированное состояние
+    result: not_run
+  - id: CT-41
+    title: TKB not found без доказательств
+    category: lifecycle
+    bank_scope: tkb
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: written_confirmation_and_active_test_rights
+    given_when: lookup вернул «не найдено», но final not_found не подтверждён
+    expected: not_found_nonfinal; unknown не освобождается
+    result: not_run
+  - id: CT-42
+    title: Токен ТКБ и другой банк
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: stored token TKB, маршрут выбран к банку Б
+    expected: проверка области токена; не отправлять необоснованную попытку
+    result: not_run
+  - id: CT-43
+    title: Списания по инициативе продавца
+    category: security
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: debit_saved с off-session и недействительным consent
+    expected: отклонить до банка, токен не использовать
+    result: not_run
+  - id: CT-44
+    title: Банковское расширение неверной версии
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: provider_parameters tkb version=99 без схемы
+    expected: отклонить локально, не отправлять банк
+    result: not_run
+  - id: CT-45
+    title: Неизвестная способность банка
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: multiple_partial_captures=unknown
+    expected: публично не объявлять поддержку, запрос final_capture=false отклонён
+    result: not_run
+  - id: CT-46
+    title: Финансовые данные вне BSON
+    category: security
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: в банковском ответе присутствует PAN или секрет
+    expected: не сохранять PAN/CVV/секрет в provider_data; безопасное удаление/маскирование
+    result: not_run
+  - id: CT-47
+    title: Изоляция продавцов
+    category: security
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: merchant A запрашивает платеж merchant B
+    expected: 404/403 по договору API; не обращаться к банку
+    result: not_run
+  - id: CT-48
+    title: Маршрут только с подтверждёнными правами
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: есть два банка; merchant активен только в одном
+    expected: выбран только разрешённый, другой не вызывается
+    result: not_run
+  - id: CT-49
+    title: Масштабирование локального API
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: симулятор 100 RPS GET + create
+    expected: не менее заданной нагрузки по согласованному профилю; нет дублей и потерь команд
+    result: not_run
+  - id: CT-50
+    title: Неизвестный итог старше тайм-аута
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: unknown сохраняется дольше обычного HTTP timeout
+    expected: нельзя автоматом failed; инцидент ручного разбора
+    result: not_run
+  - id: CT-51
+    title: Платёж подтверждён после запроса отмены
+    category: lifecycle
+    bank_scope: generic
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: active_test_rights_and_scenario_supported
+    given_when: cancel неизвестен, затем банк подтвердил debit
+    expected: зафиксировать реальную оплату; не делать автоматический refund без политики
+    result: not_run
+  - id: CT-52
+    title: Нет повторного возврата на новый ключ
+    category: idempotency
+    bank_scope: tkb
+    execute_on: simulator_first
+    bank_sandbox_prerequisite: written_confirmation_and_active_test_rights
+    given_when: refund по исходному ExtId не имеет доказанной идемпотентности банка
+    expected: на тайм-ауте не выполнять новый refund даже под новым локальным ключом
+    result: not_run

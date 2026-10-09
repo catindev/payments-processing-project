@@ -1,0 +1,680 @@
+openapi: 3.1.0
+info:
+  title: Unified Payments API — Draft
+  version: 0.1.0
+  summary: Независимый API платёжной компании для эквайринга через несколько банков.
+  description: |
+    Проект для обсуждения, НЕ утвержденный банковский или юридический контракт.
+    Секреты ТКБ и какие-либо реальные данные стенда не включены.
+servers:
+  - url: https://api.example-payments.ru
+    description: Вымышленное имя хоста, только пример
+security:
+  - MerchantBearer: []
+tags:
+  - name: Payments
+    description: Создание и управление платежами
+  - name: Refunds
+    description: Полные и частичные возвраты
+  - name: PaymentMethods
+    description: Привязка и сохраненные способы оплаты
+  - name: Customers
+    description: Покупатели отдельного продавца
+  - name: Webhooks
+    description: Исходящие уведомления продавцам
+  - name: Capabilities
+    description: Возможности, доступные авторизованному продавцу
+paths:
+  /v1/payments:
+    post:
+      tags: [Payments]
+      operationId: createPayment
+      summary: Создать платёж
+      description: |
+        По умолчанию платеж только создается. Для немедленного запуска установить confirm=true.
+        Финансовые POST требуют Idempotency-Key. Создание сохраняет объект до отправки в банк.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentRequest' }
+            example:
+              order_id: order-5821
+              amount: { value: 125000, currency: RUB }
+              capture_method: automatic
+              confirm: true
+              payment_method: { type: card }
+              return_url: https://shop.example/checkout/result
+              metadata: { cart: '5821' }
+      responses:
+        '201':
+          description: Платёж создан; статус может быть промежуточным
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '202':
+          description: Создание принято, банк ещё обрабатывает попытку
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unsupported' }
+    get:
+      tags: [Payments]
+      operationId: listPayments
+      summary: Получить платежи продавца
+      parameters:
+        - name: order_id
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/PaymentStatus' }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Список платежей, полученный из нашей системы
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, has_more]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Payment' } }
+                  has_more: { type: boolean }
+                  next_cursor: { type: [string, 'null'] }
+  /v1/payments/{paymentId}:
+    parameters:
+      - $ref: '#/components/parameters/PaymentId'
+    get:
+      tags: [Payments]
+      operationId: getPayment
+      summary: Получить состояние платежа
+      description: Возвращает зафиксированное состояние процессинга; не инициирует новый запрос к банку.
+      responses:
+        '200':
+          description: Платёж
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/payments/{paymentId}/confirm:
+    parameters:
+      - $ref: '#/components/parameters/PaymentId'
+    post:
+      tags: [Payments]
+      operationId: confirmPayment
+      summary: Инициировать подтверждение созданного платежа
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Текущее состояние платежа
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '202':
+          description: Инициирование находится в обработке
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/payments/{paymentId}/capture:
+    parameters:
+      - $ref: '#/components/parameters/PaymentId'
+    post:
+      tags: [Payments]
+      operationId: capturePayment
+      summary: Подтвердить списание по ранее авторизованной сумме
+      description: Частичное подтверждение доступно, только если поддерживается договором и банком.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [amount]
+              properties:
+                amount: { $ref: '#/components/schemas/Money' }
+      responses:
+        '200':
+          description: Состояние платежа после запроса подтверждения
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '202':
+          description: Результат подтверждения выясняется
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unsupported' }
+  /v1/payments/{paymentId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/PaymentId'
+    post:
+      tags: [Payments]
+      operationId: cancelPayment
+      summary: Отменить платёж или незавершенную авторизацию
+      description: Уже списанные средства возвращаются через /v1/refunds, а не через cancel.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Текущее состояние платежа
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '202':
+          description: Отмена в обработке
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /v1/refunds:
+    post:
+      tags: [Refunds]
+      operationId: createRefund
+      summary: Создать возврат
+      description: Отсутствие amount означает полную доступную к возврату сумму на момент атомарного исполнения команды.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRefundRequest' }
+      responses:
+        '201':
+          description: Возврат создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '202':
+          description: Возврат принят, банк ещё обрабатывает
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unsupported' }
+  /v1/refunds/{refundId}:
+    get:
+      tags: [Refunds]
+      operationId: getRefund
+      summary: Получить состояние возврата
+      parameters:
+        - name: refundId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Возврат
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Refund' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/setup_sessions:
+    post:
+      tags: [PaymentMethods]
+      operationId: createSetupSession
+      summary: Начать привязку способа оплаты без покупки
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSetupSessionRequest' }
+      responses:
+        '201':
+          description: Сессия привязки создана
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SetupSession' }
+        '202':
+          description: Проверка способа оплаты ещё продолжается
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SetupSession' }
+  /v1/setup_sessions/{setupId}:
+    get:
+      tags: [PaymentMethods]
+      operationId: getSetupSession
+      summary: Получить состояние привязки
+      parameters:
+        - name: setupId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Сессия привязки
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SetupSession' }
+  /v1/payment_methods/{paymentMethodId}:
+    delete:
+      tags: [PaymentMethods]
+      operationId: deletePaymentMethod
+      summary: Отозвать сохранённый способ оплаты
+      description: Отключает использование в нашей системе и инициирует удаление в банках, где это поддерживается.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - name: paymentMethodId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '202':
+          description: Удаление в обработке
+        '204':
+          description: Способ оплаты удалён или уже отключен
+  /v1/payments/{paymentId}/operations:
+    get:
+      tags: [Payments]
+      operationId: listPaymentOperations
+      summary: Финансовые операции по платежу
+      parameters:
+        - $ref: '#/components/parameters/PaymentId'
+      responses:
+        '200':
+          description: История авторизаций, списаний и возвратов
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/PaymentOperation' } }
+  /v1/customers:
+    post:
+      tags: [Customers]
+      operationId: createCustomer
+      summary: Зарегистрировать покупателя продавца
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [external_id]
+              properties:
+                external_id: { type: string, maxLength: 128 }
+                email: { type: string, format: email }
+      responses:
+        '201':
+          description: Покупатель создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+  /v1/customers/{customerId}:
+    get:
+      tags: [Customers]
+      operationId: getCustomer
+      summary: Получить покупателя
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Покупатель
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customer' }
+  /v1/payment_methods:
+    get:
+      tags: [PaymentMethods]
+      operationId: listPaymentMethods
+      summary: Получить сохраненные способы оплаты покупателя
+      parameters:
+        - name: customer_id
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Способы оплаты в области видимости продавца
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/PaymentMethod' } }
+  /v1/webhook_endpoints:
+    post:
+      tags: [Webhooks]
+      operationId: createWebhookEndpoint
+      summary: Зарегистрировать адрес уведомлений
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [url, event_types]
+              properties:
+                url: { type: string, format: uri, description: Только HTTPS адрес продавца }
+                event_types:
+                  type: array
+                  uniqueItems: true
+                  items: { type: string }
+      responses:
+        '201':
+          description: Endpoint создан; секрет подписи выдается отдельной защищённой процедурой
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookEndpoint' }
+  /v1/capabilities:
+    get:
+      tags: [Capabilities]
+      operationId: getCapabilities
+      summary: Доступные способы оплаты и функции продавца
+      responses:
+        '200':
+          description: Возможности активных банковских подключений
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Capabilities' }
+components:
+  securitySchemes:
+    MerchantBearer:
+      type: http
+      scheme: bearer
+      description: Серверный ключ конкретного продавца с ограниченными правами
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Уникальный для продавца и действия ключ безопасного повтора
+      schema: { type: string, minLength: 8, maxLength: 128 }
+    PaymentId:
+      name: paymentId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    Money:
+      type: object
+      additionalProperties: false
+      required: [value, currency]
+      properties:
+        value:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Сумма в младших единицах валюты (для RUB — копейки)
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          description: ISO 4217, например RUB
+          example: RUB
+    PaymentStatus:
+      type: string
+      enum:
+        - requires_payment_method
+        - requires_confirmation
+        - requires_action
+        - processing
+        - requires_capture
+        - succeeded
+        - failed
+        - canceled
+        - expired
+    PaymentMethodRequest:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [type]
+          properties:
+            type: { const: card }
+        - type: object
+          additionalProperties: false
+          required: [type]
+          properties:
+            type: { const: sbp }
+            qr_format: { type: string, enum: [dynamic, static], default: dynamic }
+        - type: object
+          additionalProperties: false
+          required: [type, id]
+          properties:
+            type: { const: saved }
+            id: { type: string, description: Наш идентификатор сохраненного способа оплаты }
+        - type: object
+          additionalProperties: false
+          required: [type, wallet]
+          properties:
+            type: { const: wallet }
+            wallet: { type: string, description: Поддерживаемый поставщик кошелька }
+    CreatePaymentRequest:
+      type: object
+      additionalProperties: false
+      required: [order_id, amount, payment_method]
+      properties:
+        order_id: { type: string, maxLength: 128 }
+        amount: { $ref: '#/components/schemas/Money' }
+        description: { type: string, maxLength: 500 }
+        outlet_id: { type: string }
+        customer_id: { type: string }
+        capture_method: { type: string, enum: [automatic, manual], default: automatic }
+        confirm: { type: boolean, default: false }
+        payment_method: { $ref: '#/components/schemas/PaymentMethodRequest' }
+        off_session: { type: boolean, default: false }
+        save_for_future_use:
+          type: string
+          enum: [on_session, off_session]
+          description: Сохранить способ оплаты после успешного платежа и подтверждения согласия
+        consent_reference:
+          type: string
+          description: Ссылка на зафиксированное согласие плательщика
+        return_url: { type: string, format: uri }
+        metadata:
+          type: object
+          maxProperties: 30
+          additionalProperties: { type: string, maxLength: 500 }
+    NextAction:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [type, url]
+          properties:
+            type: { const: redirect }
+            url: { type: string, format: uri }
+        - type: object
+          additionalProperties: false
+          required: [type, payload]
+          properties:
+            type: { const: display_qr }
+            payload: { type: string }
+            expires_at: { type: string, format: date-time }
+        - type: object
+          additionalProperties: false
+          required: [type, action]
+          properties:
+            type: { const: sdk_action }
+            action: { type: string }
+    Payment:
+      type: object
+      additionalProperties: false
+      required: [id, order_id, status, amount, capture_method, amount_authorized, amount_captured, amount_refunded, created_at]
+      properties:
+        id: { type: string, readOnly: true }
+        order_id: { type: string }
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+        amount: { $ref: '#/components/schemas/Money' }
+        amount_authorized: { type: integer, format: int64, minimum: 0 }
+        amount_captured: { type: integer, format: int64, minimum: 0 }
+        amount_refunded: { type: integer, format: int64, minimum: 0 }
+        capture_method: { type: string, enum: [automatic, manual] }
+        payment_method_type: { type: [string, 'null'] }
+        saved_payment_method_id: { type: [string, 'null'] }
+        next_action:
+          oneOf:
+            - { $ref: '#/components/schemas/NextAction' }
+            - { type: 'null' }
+        last_error:
+          oneOf:
+            - { $ref: '#/components/schemas/Error' }
+            - { type: 'null' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CreateRefundRequest:
+      type: object
+      additionalProperties: false
+      required: [payment_id]
+      properties:
+        payment_id: { type: string }
+        amount: { $ref: '#/components/schemas/Money' }
+        reason: { type: string, enum: [requested_by_customer, duplicate, fraudulent, other] }
+        metadata:
+          type: object
+          maxProperties: 20
+          additionalProperties: { type: string, maxLength: 500 }
+    Refund:
+      type: object
+      additionalProperties: false
+      required: [id, payment_id, amount, status, created_at]
+      properties:
+        id: { type: string }
+        payment_id: { type: string }
+        amount: { $ref: '#/components/schemas/Money' }
+        status: { type: string, enum: [pending, processing, succeeded, failed] }
+        failure_reason: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+    CreateSetupSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [customer_id, type, usage, return_url]
+      properties:
+        customer_id: { type: string }
+        type: { type: string, enum: [card, sbp_account] }
+        usage: { type: string, enum: [on_session, off_session] }
+        return_url: { type: string, format: uri }
+        consent_reference:
+          type: string
+          description: Идентификатор подтвержденного согласия клиента, не текст согласия
+    SetupSession:
+      type: object
+      additionalProperties: false
+      required: [id, status, customer_id, type]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [requires_action, processing, succeeded, failed, canceled] }
+        customer_id: { type: string }
+        type: { type: string, enum: [card, sbp_account] }
+        payment_method_id: { type: [string, 'null'] }
+        next_action:
+          oneOf:
+            - { $ref: '#/components/schemas/NextAction' }
+            - { type: 'null' }
+    Customer:
+      type: object
+      additionalProperties: false
+      required: [id, external_id]
+      properties:
+        id: { type: string }
+        external_id: { type: string }
+        email: { type: string, format: email }
+    PaymentMethod:
+      type: object
+      additionalProperties: false
+      required: [id, customer_id, type, status]
+      properties:
+        id: { type: string }
+        customer_id: { type: string }
+        type: { type: string, enum: [card, sbp_account] }
+        status: { type: string, enum: [active, suspended, revoked] }
+        card:
+          type: object
+          additionalProperties: false
+          properties:
+            brand: { type: string }
+            last4: { type: string, minLength: 4, maxLength: 4 }
+            exp_month: { type: integer, minimum: 1, maximum: 12 }
+            exp_year: { type: integer }
+    PaymentOperation:
+      type: object
+      additionalProperties: false
+      required: [id, payment_id, type, status, amount, created_at]
+      properties:
+        id: { type: string }
+        payment_id: { type: string }
+        type: { type: string, enum: [authorize, capture, void, refund] }
+        status: { type: string, enum: [pending, processing, succeeded, failed] }
+        amount: { $ref: '#/components/schemas/Money' }
+        created_at: { type: string, format: date-time }
+    WebhookEndpoint:
+      type: object
+      additionalProperties: false
+      required: [id, url, event_types, status]
+      properties:
+        id: { type: string }
+        url: { type: string, format: uri }
+        event_types: { type: array, items: { type: string } }
+        status: { type: string, enum: [active, disabled] }
+    Capabilities:
+      type: object
+      additionalProperties: false
+      required: [payment_methods]
+      properties:
+        payment_methods:
+          type: array
+          items: { type: string, enum: [card, sbp, wallet] }
+        supports_manual_capture: { type: boolean }
+        supports_partial_capture: { type: boolean }
+        supports_partial_refunds: { type: boolean }
+        supports_saved_payment_methods: { type: boolean }
+        supports_off_session: { type: boolean }
+        restrictions:
+          type: object
+          additionalProperties: true
+          description: Версионируемые дополнительные ограничения по отдельным платежным методам
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message, request_id]
+      properties:
+        code: { type: string, example: invalid_payment_state }
+        message: { type: string }
+        request_id: { type: string }
+        retryable: { type: boolean, description: Разрешен ли безопасный повтор прежней операции }
+        details:
+          type: object
+          additionalProperties: true
+  responses:
+    Conflict:
+      description: Конфликт состояния или неправильное повторное использование ключа идемпотентности
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unsupported:
+      description: Операция недоступна для подключенного банка/продавца
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Объект не найден или не доступен этому продавцу
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

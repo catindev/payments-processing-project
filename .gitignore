@@ -1,0 +1,40 @@
+# Credentials and local test environments
+.env
+.env.*
+!.env.example
+*.secret
+*.secrets
+*.p12
+*.pfx
+*.pem
+*.key
+*.jks
+*.keystore
+*postman_environment*.json
+*environment.postman*.json
+
+# Private material: bank docs, sources, packets, logs
+sources/private/
+secrets/
+reports/raw/
+reports/results/**/*.har
+reports/results/**/*.pcap
+reports/results/**/*.pcapng
+reports/results/**/*-raw.json
+reports/results/**/*-raw.txt
+*.har
+*.pcap
+*.pcapng
+*.log
+
+# Python / JS / IDE
+__pycache__/
+.pytest_cache/
+.venv/
+venv/
+node_modules/
+dist/
+build/
+.DS_Store
+.idea/
+.vscode/

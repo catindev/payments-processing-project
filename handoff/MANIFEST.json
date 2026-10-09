@@ -1,0 +1,522 @@
+{
+  "baseline_date": "2026-10-09",
+  "type": "source_snapshot_not_evidence_of_execution",
+  "files": {
+    ".env.example": {
+      "sha256": "29e5030102b7129f98fca9e1d5886d2be691c6ec1034e21f61fd10d22b39cad8",
+      "bytes": 190
+    },
+    ".gitattributes": {
+      "sha256": "61d8007f525c1b52c476c190fd69fc42b005a8a974df959cb14e86d9597e99da",
+      "bytes": 101
+    },
+    ".gitignore": {
+      "sha256": "3f07b3390fa7f6015fb1bafb1e56216e9582e460c3442ecee9a1bd8b42a47dad",
+      "bytes": 557
+    },
+    "AGENTS.md": {
+      "sha256": "0df9a5e00ccab9ed155ae390b7adb410c07ac82e3fa277c94c30cb5cc1828425",
+      "bytes": 5670
+    },
+    "CLAUDE.md": {
+      "sha256": "4ef1c60c78018d95eba844206d1c162e030a714182c1da5b9ecef003ac9c1870",
+      "bytes": 839
+    },
+    "README.md": {
+      "sha256": "63221765de5ece74a205c291724890b8282d00cefe19e10ff7e746f68fcaf9cc",
+      "bytes": 5937
+    },
+    "docs/changes/.gitkeep": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/current/README.md": {
+      "sha256": "bb092d80055781d83896c374308dfee3b107d58dfaa67fc6f52387e6e06a344b",
+      "bytes": 1274
+    },
+    "docs/current/acquirer-connector-contract-tests-v0.9.yaml": {
+      "sha256": "5e72e279876e59ebf2cfb6084309fa58cc69a7d058e8d8d8a18a1652845095cb",
+      "bytes": 108838
+    },
+    "docs/current/acquirer-connector-contract-v1.1.md": {
+      "sha256": "c701cee45711998114a6f4570cdd3dc1051ffd6397ee4e16fef44cfa92443c9c",
+      "bytes": 53504
+    },
+    "docs/current/acquirer-connector-v0.6.ts": {
+      "sha256": "97929fc98ba74b6e1b42e33eecec324584dcde17ce616f7bc94f274dab5511e6",
+      "bytes": 13674
+    },
+    "docs/current/check-payment-checkout-v1.1.py": {
+      "sha256": "3e41a78fe27791bf56dd333d4fff2c9d8034465fa70e4319428e2fc7bc918001",
+      "bytes": 2781
+    },
+    "docs/current/check-payment-money-v1.1.py": {
+      "sha256": "9d7a23e98ad0e517da4a39ca5db2e5eea91b98a2a164617f91273b3512253272",
+      "bytes": 6575
+    },
+    "docs/current/check-payment-names-v1.4.py": {
+      "sha256": "ff06216a10cf82eadcd17796172621eb47a0197385c492c857adfd7b187fe678",
+      "bytes": 3259
+    },
+    "docs/current/checkout-contract-cases-v0.2.yaml": {
+      "sha256": "dd9632a3a41e58e76f02e21b77c00d242daae05c40737b46146eba760e2969f6",
+      "bytes": 7296
+    },
+    "docs/current/payment-api-v0.12.openapi.yaml": {
+      "sha256": "52a9f1b5c612a8e99ff04f4a64455ffe1b99089dd5159006bca36c5ce603b2d9",
+      "bytes": 99328
+    },
+    "docs/current/payment-checkout-design-v0.2.md": {
+      "sha256": "13c343e1471641f7c2bdd4cb585f1b7622c6a32f52f375f2bbbd0ea69fda25e5",
+      "bytes": 26581
+    },
+    "docs/current/payment-lifecycle-spec-v0.12.md": {
+      "sha256": "7f3f5f52a09ab2afd073b20f06a3939f25c665b3d065a8ebd293375526d01039",
+      "bytes": 123659
+    },
+    "docs/current/payment-naming-conventions-v1.1.md": {
+      "sha256": "5223c3c1ae6c089fa568d58b2380e72153fd82bdf66ab07cffffb4fea69feae4",
+      "bytes": 7661
+    },
+    "docs/current/payment-processing-architecture-v1.1.md": {
+      "sha256": "e2122ef0b3e279620fab0cdcd7875cdf2c68940edd95403594b28aba9d4a1362",
+      "bytes": 56674
+    },
+    "docs/current/payment-processing-decisions-v1.1.md": {
+      "sha256": "dc66846b381e0bcedc14f5c220904f18779a9182adbb3d2d8f674e203da62397",
+      "bytes": 49113
+    },
+    "docs/current/tkb-connector-profile-v0.2.yaml": {
+      "sha256": "dff5415b2d0bbc694e0cc0529bbfd72818a22757b1560e25d348687a6a2676c2",
+      "bytes": 8757
+    },
+    "docs/history/README.md": {
+      "sha256": "b50c678d9999997150846cac10c7b2889b1959d0ac3c4a8c55654037f0c2d2db",
+      "bytes": 957
+    },
+    "docs/history/interfaces/acquirer-connector-v0.1.ts": {
+      "sha256": "03b9b435cbbeb8b91177ee394fef738765f99cd5c79818812c4a137c04b9334e",
+      "bytes": 11478
+    },
+    "docs/history/interfaces/acquirer-connector-v0.2.ts": {
+      "sha256": "69a2fb01feefcfd0edf65cd3c38862278801c3d0aba11d5303063fe68a650d6b",
+      "bytes": 11697
+    },
+    "docs/history/interfaces/acquirer-connector-v0.3.ts": {
+      "sha256": "402bc46131f5af24b918e42c5ec1ba97b17584fac4be0fc5e64d20db96a1175b",
+      "bytes": 11803
+    },
+    "docs/history/interfaces/acquirer-connector-v0.4.ts": {
+      "sha256": "02306db65683f1f11ea278ee1889a162119c9486e5d5e0711a33963a54919478",
+      "bytes": 12057
+    },
+    "docs/history/interfaces/acquirer-connector-v0.5.ts": {
+      "sha256": "ada50de9b94db15eae43d6f87ee27ed0a385b68fb55279cfd4eb881a4abd1fe7",
+      "bytes": 12757
+    },
+    "docs/history/milestones/payment-checkout-BR07-README.md": {
+      "sha256": "475a93edcf975bce715fa2f66b33849ab80c32ed0cea2ddd07639f69870f4b7f",
+      "bytes": 2917
+    },
+    "docs/history/milestones/payment-checkout-BR07-approved-README.md": {
+      "sha256": "2ee5ea63a616068207c32ba46d91458bc0abbdc24ec4063d004722eec510758a",
+      "bytes": 2859
+    },
+    "docs/history/milestones/payment-processing-BR01-README.md": {
+      "sha256": "6143f60f8303e63cdf558596c237b7f08d99c06562f9a254c21433bf84f41dd2",
+      "bytes": 8573
+    },
+    "docs/history/milestones/payment-processing-BR02-README.md": {
+      "sha256": "0da98e3b66e185d871de32e86936f12019995e1373b9366eaca3b9d8e1dc1f01",
+      "bytes": 3797
+    },
+    "docs/history/milestones/payment-processing-BR021-README.md": {
+      "sha256": "bf151e0a4a50ead36afa60c7a749fc027fa88268956a316f3b23d618a185dd62",
+      "bytes": 3877
+    },
+    "docs/history/milestones/payment-processing-BR031-README.md": {
+      "sha256": "31f63b4b9d223d9de190aa62da4f22083a539ea3f9f43088d21d2755f31bdc56",
+      "bytes": 3272
+    },
+    "docs/history/milestones/payment-processing-BR032-README.md": {
+      "sha256": "64bb22f163b897805a923aee55b152adae1fe0b625bdae4b25bd04dde985f662",
+      "bytes": 4090
+    },
+    "docs/history/milestones/payment-processing-BR04-README.md": {
+      "sha256": "b0202d602dcb729308f308878ffd5cbcfcd9e9b8f930ecf0d2915afd3ea794a1",
+      "bytes": 5496
+    },
+    "docs/history/milestones/payment-processing-BR05-README.md": {
+      "sha256": "45dc00ad9a4030be2d29034d902dc26b9a4e77708fcb991f869621e454bbe25a",
+      "bytes": 6940
+    },
+    "docs/history/milestones/payment-processing-BR06-README.md": {
+      "sha256": "1a05a17f8e79db2136b4121074a69204f5767911e7d0f86e25ba18b78dd71e21",
+      "bytes": 4837
+    },
+    "docs/history/milestones/payment-processing-stage2-README.md": {
+      "sha256": "f3ea1994ff48514100fe2c57b7a1a280b66b93b4e5b009f82a785ff52c20b445",
+      "bytes": 6025
+    },
+    "docs/history/validators/check-payment-checkout-v1.py": {
+      "sha256": "65cdf11f9190a4a452302c22864ee909bf94d9b21e2203cdb50f5abe85db39cc",
+      "bytes": 2781
+    },
+    "docs/history/validators/check-payment-money-v1.py": {
+      "sha256": "68a08cb4eab3592dc7a2bca88f89ecf15fadd72d74b0d65bc954d872730a519b",
+      "bytes": 6573
+    },
+    "docs/history/validators/check-payment-names-v1.1.py": {
+      "sha256": "507060069e5c375cf367cd06247a7ce43a7e5c0395ae4bc481fd7007265b6587",
+      "bytes": 3254
+    },
+    "docs/history/validators/check-payment-names-v1.2.py": {
+      "sha256": "194a70fd67a535bbc0ab4a3b7513b9cfdef385140603a73b6b8f7ef8c5cffaf9",
+      "bytes": 3258
+    },
+    "docs/history/validators/check-payment-names-v1.3.py": {
+      "sha256": "3e656f52d5c9ba1ef89cfd3bbc0e44b22fea16b3636868e4f206cf3d8ac0f562",
+      "bytes": 3259
+    },
+    "docs/history/validators/check-payment-names-v1.py": {
+      "sha256": "6015adfcb8a2c1feea49953b8aa74fb6d05db524b6e92af0fc00630cd8b9f36d",
+      "bytes": 3254
+    },
+    "docs/history/versions/acquirer-connector-contract-tests-v0.1.yaml": {
+      "sha256": "0ac729419e3a07264270393687affa65c3bd384446a462d87099397d21e89513",
+      "bytes": 22661
+    },
+    "docs/history/versions/acquirer-connector-contract-tests-v0.2.yaml": {
+      "sha256": "9c51dbf3b867ac86ce98f587862a7aa5c80705e1bdb7eda6823a6090fcf100aa",
+      "bytes": 35994
+    },
+    "docs/history/versions/acquirer-connector-contract-tests-v0.3.yaml": {
+      "sha256": "a2ef0ff1f09b7fe33742dcf57d5efc944ad4e0fe629aff78b7c01c6a984f41fd",
+      "bytes": 48535
+    },
+    "docs/history/versions/acquirer-connector-contract-tests-v0.4.yaml": {
+      "sha256": "068b67e9b8c93cbf258782e87351c497c4dfba659807d6a1ff3c460f3d6a4af4",
+      "bytes": 57769
+    },
+    "docs/history/versions/acquirer-connector-contract-tests-v0.5.yaml": {
+      "sha256": "f2a3d17f4094e93b9f25928240f7a397e2f874339e07f21fdc0ec8c74266b559",
+      "bytes": 65538
+    },
+    "docs/history/versions/acquirer-connector-contract-tests-v0.6.yaml": {
+      "sha256": "240605340c43ed8b9bc3ec5a6da865d6f4e5121eb2e54a7fa4af675fa0acef3a",
+      "bytes": 73958
+    },
+    "docs/history/versions/acquirer-connector-contract-tests-v0.7.yaml": {
+      "sha256": "1ccf663f0697d82df66095b20101162921ac4e670e6fda3e74e538f7af7ea258",
+      "bytes": 86848
+    },
+    "docs/history/versions/acquirer-connector-contract-tests-v0.8.yaml": {
+      "sha256": "23e6c4a5b3b5060a6a4f742e9fbce07428f397cdce209e7aee0f7ab29cbb81e3",
+      "bytes": 99961
+    },
+    "docs/history/versions/acquirer-connector-contract-v0.1.md": {
+      "sha256": "cb0d90a0a2d67e749ef5465f878fc288323039dc17152ea63e2be4dc414e4933",
+      "bytes": 32032
+    },
+    "docs/history/versions/acquirer-connector-contract-v0.2.md": {
+      "sha256": "77423d6b8524854225a0c1b4cad754f65d636667edd2b7eff168f01272b379aa",
+      "bytes": 33981
+    },
+    "docs/history/versions/acquirer-connector-contract-v0.3.md": {
+      "sha256": "70a7a6bcb1272fb7b244311432d2c2f992df22a960932b39079815008ea226f7",
+      "bytes": 34756
+    },
+    "docs/history/versions/acquirer-connector-contract-v0.4.md": {
+      "sha256": "01788527497c5ac0ea7bcde9b2263048fea1ae97b252c9416ff6407678ed896c",
+      "bytes": 36607
+    },
+    "docs/history/versions/acquirer-connector-contract-v0.5.md": {
+      "sha256": "3783ddc4bc857ae8290a742726ef99fdc6a866968853d749f2876210cce44693",
+      "bytes": 39587
+    },
+    "docs/history/versions/acquirer-connector-contract-v0.6.md": {
+      "sha256": "a6b5f7f99d9ca3a9388f23efa608cc9100eedf9ae3815e96090ba610831da420",
+      "bytes": 41378
+    },
+    "docs/history/versions/acquirer-connector-contract-v0.7.md": {
+      "sha256": "9276810b2aaa594a173ba28dfd8a1def037baf04fe86de57acb9006cb7ae2759",
+      "bytes": 46412
+    },
+    "docs/history/versions/acquirer-connector-contract-v0.8.md": {
+      "sha256": "a7092c00f09ec72413f18fc21cc3c99b7a9eac783d5588dd7b0406f7b3fecf61",
+      "bytes": 50217
+    },
+    "docs/history/versions/acquirer-connector-contract-v0.9.md": {
+      "sha256": "0ec5ce78babf736c9424195ef45c37eaae2eb8576a4483e25d02326992d702ab",
+      "bytes": 50635
+    },
+    "docs/history/versions/acquirer-connector-contract-v1.0.md": {
+      "sha256": "8c4bd92865f5f15d25ee82780220a8025b8695eb321fab2e94cd73ad17e19984",
+      "bytes": 52806
+    },
+    "docs/history/versions/checkout-contract-cases-v0.1.yaml": {
+      "sha256": "86238d132221181a248ed90981063f77e08cab72a27a78eeb771f482893308cd",
+      "bytes": 4725
+    },
+    "docs/history/versions/payment-api-v0.1.openapi.yaml": {
+      "sha256": "47f92906961a9203fabe3a3e19afd69a5235e0b001a2a2627364164b3a1128fd",
+      "bytes": 26808
+    },
+    "docs/history/versions/payment-api-v0.10.openapi.yaml": {
+      "sha256": "fe7c79619407c7bef94f06ec3844077ad7d817ce7e81c3291452f09f61b6ec9a",
+      "bytes": 94184
+    },
+    "docs/history/versions/payment-api-v0.11.openapi.yaml": {
+      "sha256": "f6ddec2e54e934f12f6bb50e77a3caa4a78d2547681bd98b794b15ff2acfb474",
+      "bytes": 98989
+    },
+    "docs/history/versions/payment-api-v0.2.openapi.yaml": {
+      "sha256": "447f3ec84c779301e8733f2fa7525df3c945f51fe14b7da8463a688b7cfc0a30",
+      "bytes": 44880
+    },
+    "docs/history/versions/payment-api-v0.3.openapi.yaml": {
+      "sha256": "d7ab92aa919f29dad705afb6cffb50b5fd60a30a0426af49216ceb21937eaeef",
+      "bytes": 66097
+    },
+    "docs/history/versions/payment-api-v0.4.openapi.yaml": {
+      "sha256": "6e398188399e91d75acecaefb2201e295e3abb385a632c924bd00207b37386f9",
+      "bytes": 70681
+    },
+    "docs/history/versions/payment-api-v0.5.openapi.yaml": {
+      "sha256": "76c84f63335274bdd5e9dcc8f0bf4a59f83f539e6f7281b11c360cbb6a171866",
+      "bytes": 76575
+    },
+    "docs/history/versions/payment-api-v0.6.openapi.yaml": {
+      "sha256": "4d6180f669739715b036604fc76a0050daab0075493f30f3633eaa00f69fefc6",
+      "bytes": 78183
+    },
+    "docs/history/versions/payment-api-v0.7.openapi.yaml": {
+      "sha256": "90cdc757cb6bac5c41ef4b26bc0f5747cb83e6cc7c9b2d5ecf9adafcfb1d70cd",
+      "bytes": 81099
+    },
+    "docs/history/versions/payment-api-v0.8.openapi.yaml": {
+      "sha256": "7c714e89c3e9926e5b1d18ba37f18ab1d51af5ac2a8564f47a9e1989cb34840f",
+      "bytes": 87119
+    },
+    "docs/history/versions/payment-api-v0.9.openapi.yaml": {
+      "sha256": "505c4c344b5e5fa3800980bf06f35a42aae1bde6ce1963afd89d2a05b3a3d4d3",
+      "bytes": 93204
+    },
+    "docs/history/versions/payment-checkout-design-v0.1.md": {
+      "sha256": "09c4dd4cf3e33e6b9ba0ac9bb4592bd065612c2c997d5530be5c3039330438de",
+      "bytes": 23763
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.10.md": {
+      "sha256": "e9e18e1845b7ecaf9431e7e141109ce2753f7c19b9044defc69ab668a406ad52",
+      "bytes": 121443
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.11.md": {
+      "sha256": "9a712b526d988796ffc9b61e9ab2ecc49d0c1128c3f9e989945dcacf745fda68",
+      "bytes": 123418
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.2.md": {
+      "sha256": "e6b7e609aa828bf0fcce398efc648ab40ce68debadaad0916d9c362d01c542f9",
+      "bytes": 70544
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.3.md": {
+      "sha256": "93df74892ee6406bd25a5d6f8db3dcbe22aa9cc4026a7947b181f283a0d34fba",
+      "bytes": 80325
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.4.md": {
+      "sha256": "9aea9d433335704c2bf44dfc6abf8287f55db475b5666c2d58ee7ac89ef239b8",
+      "bytes": 90074
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.5.md": {
+      "sha256": "089feb9b8b0c678ddaaab041cceb4e3efd53b8952b5e113e59cafe318f32cf83",
+      "bytes": 97859
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.6.md": {
+      "sha256": "50822464c39086522919bdb64f0608fb231113e84bcd59ef8b1d67983b4ec490",
+      "bytes": 101302
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.7.md": {
+      "sha256": "f501a402b85e7b364740fe7e53180601e2dcbba2cd4c4435b06930f5a0436f08",
+      "bytes": 104644
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.8.md": {
+      "sha256": "9dd812e723b614762111867d4923a1f26b2154711ae076de1a33119e716ba184",
+      "bytes": 112473
+    },
+    "docs/history/versions/payment-lifecycle-spec-v0.9.md": {
+      "sha256": "141cbce2ac472b60619ee20995a5c9f4e91cd5e20161016083df0f0d4aa517f8",
+      "bytes": 120295
+    },
+    "docs/history/versions/payment-naming-conventions-v1.0.md": {
+      "sha256": "4efe74837e1297b74fe28a871941a817ab304094e3f0956ef9558e914bd22871",
+      "bytes": 7353
+    },
+    "docs/history/versions/payment-processing-architecture-v0.1.md": {
+      "sha256": "cf7010d7e44d167ec4b62cfa11bff30950fd5cdcf300979758781bb62bad8863",
+      "bytes": 39009
+    },
+    "docs/history/versions/payment-processing-architecture-v0.2.md": {
+      "sha256": "540bc8bf9203a55b3dfbda1e78f5444c9d5303ee57aac450e89c3f9782e09a79",
+      "bytes": 40223
+    },
+    "docs/history/versions/payment-processing-architecture-v0.3.md": {
+      "sha256": "551c0fa522538ae076d45d2b4b0ad2e9f54709c48d686f463ab8769217dd9bc9",
+      "bytes": 40673
+    },
+    "docs/history/versions/payment-processing-architecture-v0.4.md": {
+      "sha256": "d451279e9c3a08fd7df09f1fe10779560dce4b0bfdde1a788fa0d287d61a7636",
+      "bytes": 43203
+    },
+    "docs/history/versions/payment-processing-architecture-v0.5.md": {
+      "sha256": "c365f46498100be25164412a841af1a033a15fa7261d357db35601c82e243ad9",
+      "bytes": 44208
+    },
+    "docs/history/versions/payment-processing-architecture-v0.6.md": {
+      "sha256": "0d4691aa19a1e691177237206d13b16b5361ec5babf263379aa07f6a32ecb7a1",
+      "bytes": 46540
+    },
+    "docs/history/versions/payment-processing-architecture-v0.7.md": {
+      "sha256": "f5d58c693b7dedfe4d5720ae987ed78056e9f9f7695ab909ed7b3d2ea3c70c8e",
+      "bytes": 49683
+    },
+    "docs/history/versions/payment-processing-architecture-v0.8.md": {
+      "sha256": "d780aa6690a2bae1b2fa2a870ca7ef8ffd684fc654ede12674462332256f2578",
+      "bytes": 53303
+    },
+    "docs/history/versions/payment-processing-architecture-v0.9.md": {
+      "sha256": "212fd72ef8e707cf15ae1f338939dc56c4968d440fe0e2b0ec16278b1a357799",
+      "bytes": 53689
+    },
+    "docs/history/versions/payment-processing-architecture-v1.0.md": {
+      "sha256": "6bf383895a7411393a51436fe7b4bbc6d7752105768ecad5dd8ffd68d39a3e15",
+      "bytes": 56218
+    },
+    "docs/history/versions/payment-processing-decisions-v0.1.md": {
+      "sha256": "8815e979c4cae8dde60bf9f98c0c141a0ce8ef4368d5eb86f3289092a7af265f",
+      "bytes": 11260
+    },
+    "docs/history/versions/payment-processing-decisions-v0.2.md": {
+      "sha256": "e424d05ad054ae9a902aeab2aa07e2e03f8fb27ece3d4cb4ab4e934ba5bc2cdd",
+      "bytes": 14335
+    },
+    "docs/history/versions/payment-processing-decisions-v0.3.md": {
+      "sha256": "acd5ede933815d92f717d48a9ba1e7db642e9c16e74329255c85efee34a433d0",
+      "bytes": 17189
+    },
+    "docs/history/versions/payment-processing-decisions-v0.4.md": {
+      "sha256": "0b372bad3bed3a26efb86b2382b328dd6b83c72b3c9fdfb4b3a06a8b6d13fc0b",
+      "bytes": 22860
+    },
+    "docs/history/versions/payment-processing-decisions-v0.5.md": {
+      "sha256": "e93637ec8e053ea063bb2a484107a93a5d5fa92345c225b2be05beafb5a27f5d",
+      "bytes": 27207
+    },
+    "docs/history/versions/payment-processing-decisions-v0.6.md": {
+      "sha256": "4f519246b5a3e646a760da2389affab9c7c25042709a6f147e679bf876d2d597",
+      "bytes": 31658
+    },
+    "docs/history/versions/payment-processing-decisions-v0.7.md": {
+      "sha256": "d2771280a61452452ed00cf4ecc34ce8e1427a579868d73635c68690417ee27c",
+      "bytes": 35693
+    },
+    "docs/history/versions/payment-processing-decisions-v0.8.md": {
+      "sha256": "2af49aebfad31343f1d563523263b6b92f8a2a4451b34e636ff68a269b93cfb2",
+      "bytes": 39657
+    },
+    "docs/history/versions/payment-processing-decisions-v0.9.md": {
+      "sha256": "2f488e6b6b7cee10268413174bc01027cec7f0dafd99e514037b006602693c52",
+      "bytes": 43076
+    },
+    "docs/history/versions/payment-processing-decisions-v1.0.md": {
+      "sha256": "ce35a50cec899a99103a9cc4567351511c828fff09f3489b1c686c2aabf89592",
+      "bytes": 45364
+    },
+    "docs/history/versions/tkb-connector-profile-v0.1.yaml": {
+      "sha256": "9dd7fdaeb037c62a52af21a97e5e7529b267cb8440e987a7c9ac92b4d04d004d",
+      "bytes": 6664
+    },
+    "docs/history/versions/tkb-connector-profile-v0.2--3d033daf.yaml": {
+      "sha256": "3d033daf47af912a9387682ba8cbcb131ac6a69ccb3427af9071468196a768a9",
+      "bytes": 7202
+    },
+    "docs/history/versions/tkb-connector-profile-v0.3.yaml": {
+      "sha256": "424e5a17d96a76b2107723aabdfc551b5c6e08508d8d35b1a4f87783aee67233",
+      "bytes": 7806
+    },
+    "docs/research/README.md": {
+      "sha256": "c127057affc47efe43738ae6f913b9c9715a83bbba9674259b2a76f3e82b93b0",
+      "bytes": 511
+    },
+    "docs/research/checkout-forms-comparative-review-v1.md": {
+      "sha256": "d7273d5eecaf23e4589378f6ea26df3d332a11c04a18ba95ab616bc54dc9ce73",
+      "bytes": 40043
+    },
+    "handoff/EXECUTION_PROTOCOL.md": {
+      "sha256": "c993dfcf450ee8a632d1a044e4ef058e1a9a29c35b5f55d94e0becfa993f53c4",
+      "bytes": 2362
+    },
+    "handoff/PROJECT_CONTEXT.md": {
+      "sha256": "af20a64b05e0562d876626fd0a45396f99eb3f28eb68b5d99e6b043f83e3d539",
+      "bytes": 6555
+    },
+    "handoff/START_PROMPT.md": {
+      "sha256": "0eac5b690a8440ed9a41b753d2c4c6a9c46f920bd0459c758e562dc8f1113cbe",
+      "bytes": 2133
+    },
+    "handoff/STATUS.md": {
+      "sha256": "72f0f6f62ee50d0f1b4e7ef5e2216e8ae51582c2d08a559955f4d11286c84342",
+      "bytes": 2219
+    },
+    "handoff/TKB_OPEN_QUESTIONS.md": {
+      "sha256": "454a5d0ba4a4d86dbdfd08b4809681e67f5a7bcd4a2d1b8d4d1f6d084913c74d",
+      "bytes": 3261
+    },
+    "reports/README.md": {
+      "sha256": "fef0c3e6538d8eaca70d5bf140ed3b51b2807813be2a80820bb965c85dfbee59",
+      "bytes": 1398
+    },
+    "reports/results/audit/.gitkeep": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "reports/results/simulator/.gitkeep": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "reports/results/tkb/.gitkeep": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "reports/templates/experiment.md": {
+      "sha256": "68021099c46680c1779be3be94ecd59f74d2f6e47bf6502151b90629e7ad699c",
+      "bytes": 2121
+    },
+    "requirements-validation.txt": {
+      "sha256": "79548e73b3a736b2926ac255d51b0bd09e7be178eacae68c41e262d0f9f337f1",
+      "bytes": 57
+    },
+    "scripts/validate_current.py": {
+      "sha256": "7d59bd2c3fe9ee90779033c90e8d5e20a35a00d2f8e27d328fec8f992a6b72e0",
+      "bytes": 1341
+    },
+    "tasks/001-tkb-wof-3ds.md": {
+      "sha256": "cc7a5299398f50fcdc9bead41dcd12188c478902bc50734c91f85dba062eafdc",
+      "bytes": 4575
+    },
+    "tasks/002-core-simulator.md": {
+      "sha256": "2abd79dec88a41680a0e10083ecd58f7a06199c82433a8f20cdc9878a58aed2a",
+      "bytes": 1825
+    },
+    "tasks/003-checkout-pci.md": {
+      "sha256": "f917e49514193075081e7c141e11cca9b456d34abde9978a0517813a8d709351",
+      "bytes": 1970
+    },
+    "tasks/004-architecture-audit.md": {
+      "sha256": "2cb0e25e9a5b98e3cbc6c18b75a5ba9a53a656372c95a8edb5d96dff0ffc4c3b",
+      "bytes": 1437
+    },
+    "tests/tkb/.gitkeep": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  }
+}

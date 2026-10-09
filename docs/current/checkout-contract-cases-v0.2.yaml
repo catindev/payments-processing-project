@@ -1,0 +1,94 @@
+# BR-07: описательные приёмочные сценарии, НЕ реализованные end-to-end тесты.
+version: '0.2-BR07-approved'
+status: scenarios_only_not_run
+cases:
+  - id: CF-01
+    scenario: У CheckoutIntent без дочернего платежа есть checkout.url
+    expected: Ссылка на наш HTTPS-домен, не банковский URL; нет финансового списания
+  - id: CF-02
+    scenario: Прямой Payment получает checkout.url и использует тот же Payment ID
+    expected: Checkout не создаёт отдельную финансовую сущность
+  - id: CF-03
+    scenario: Карта, direct поддержан банком и доступен PCI Card Gateway
+    expected: Наша форма работает через secure_card_ref; PAN/CVV не попадают в Core
+  - id: CF-04
+    scenario: Банк поддерживает только hosted-форму
+    expected: Наша страница перенаправляет на bank HTTPS URL, данные карты собирает банк
+  - id: CF-05
+    scenario: WOF документирован, но право терминала unknown
+    expected: direct не предлагается; использовать подтверждённый provider-режим
+  - id: CF-06
+    scenario: WOF разрешён, но PCI readiness=false
+    expected: direct запрещён до финансовой отправки
+  - id: CF-07
+    scenario: 3DS2 frictionless через WOF
+    expected: Банк подтверждает итог; return браузера сам по себе не успех
+  - id: CF-08
+    scenario: 3DS2 ACS challenge через WOF
+    expected: Challenge у ACS; наш UI не принимает банковский OTP
+  - id: CF-09
+    scenario: Ошибка 3DS2 Validate
+    expected: Не переводить Payment в succeeded без доказательства
+  - id: CF-10
+    scenario: Direct-отправка получила timeout после возможной доставки банку
+    expected: unknown; запрещены redirect fallback и новый банковский debit
+  - id: CF-11
+    scenario: Direct невозможен до отправки по подтверждённой причине
+    expected: Безопасный fallback на bank-hosted в рамках того же исходного Payment
+  - id: CF-12
+    scenario: Независимый direct Payment окончательно failed
+    expected: Повтор требует нового Payment, а не нового confirm прежнего
+  - id: CF-13
+    scenario: В PaymentIntent отказал первый дочерний Payment
+    expected: Buyer action создаёт новый дочерний Payment; автоматического повтора нет
+  - id: CF-14
+    scenario: Покупатель выбирает СБП QR
+    expected: QR отображается нашей страницей; PAN не используется
+  - id: CF-15
+    scenario: Истёк PaymentIntent, но checkout URL ещё открывается
+    expected: Новый confirm не стартует
+  - id: CF-16
+    scenario: Повтор одного checkout-события/merchant Idempotency-Key
+    expected: Не создаются повторные Payment или банковские команды
+  - id: CF-17
+    scenario: Попытка использовать чужой checkout token
+    expected: Нет доступа к чужому merchant, Payment или Intent
+  - id: CF-18
+    scenario: Поля PAN/CVV попытались передать в Merchant Payment API
+    expected: Запрос отклонён schema-validation; чувствительные значения не логируются
+  - id: CF-19
+    scenario: Hosted fields SDK неизвестен по документации банка
+    expected: Поддержка fields не публикуется как true
+  - id: CF-20
+    scenario: Карточные реквизиты в трассировках, events, metadata и provider JSON
+    expected: Запрещено; защита и сканирование утечек
+  - id: CF-21
+    scenario: ТКБ WOF доступен и холд manual
+    expected: Используется профиль WOF hold/3DS; бизнес-инварианты BR-03 сохраняются
+  - id: CF-22
+    scenario: Банк вернул покупателя по return URL со словом success
+    expected: До банковского свидетельства Payment остаётся processing/pending
+  - id: CF-23
+    scenario: Покупатель вводит PAN, срок и CVV в собственном карточном интерфейсе
+    expected: При разрешённом WOF не происходит redirect на банковскую форму ввода карты; данные идут только через PCI-контур
+  - id: CF-24
+    scenario: Существует наш Checkout с QR и кнопкой перехода на банковскую форму, но нет собственного карточного ввода
+    expected: Пилот возможен, но BR-07 не считается реализованным
+  - id: CF-25
+    scenario: Для одного разрешённого терминала direct работает, для другого банка только provider
+    expected: В первом случае наша карточная форма, во втором банковская; оба используют те же Payment и PaymentIntent
+  - id: CF-26
+    scenario: Через собственную карточную форму выполняется 3DS challenge
+    expected: ACS получает покупателя для аутентификации; реквизиты карты не переносятся на банковскую форму
+  - id: CF-27
+    scenario: Для прямой интеграции нет PCI-готовности или разрешения банка
+    expected: Direct отключён; не заявляется, что BR-07 готово для промышленной эксплуатации
+  - id: CF-28
+    scenario: Банк предлагает hosted fields с ограниченной кастомизацией
+    expected: Не считать их автоматическим выполнением собственной формы без проверки UX и отдельного решения
+  - id: CF-29
+    scenario: Мерчант выбрал один акцентный цвет
+    expected: Общая Checkout тема использует один брендовый акцент и расчётные цвета с достаточным контрастом
+  - id: CF-30
+    scenario: Прямая карточная форма и банковский fallback прошли полный путь до подтверждённого платежа
+    expected: BR-07 можно считать выполненным после проверки полномочий банков, PCI и 3DS
