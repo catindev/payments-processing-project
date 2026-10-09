@@ -1,7 +1,7 @@
-import {open, readFile, mkdir, stat} from 'node:fs/promises';
+import {open, readFile, mkdir, stat, readdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {join, dirname} from 'node:path';
-import {createHash, createHmac, createDecipheriv, randomUUID} from 'node:crypto';
+import {createHash, createHmac, createDecipheriv, createCipheriv, randomBytes, randomUUID} from 'node:crypto';
 import {request, Agent} from 'node:https';
 import {checkServerIdentity} from 'node:tls';
 import assert from 'node:assert/strict';
@@ -13,6 +13,9 @@ const ORIGIN='0e2449c281d8bae1e311408ebc95595b6fa1f2ab67db1ccd6a8a0b95a1e3a721';
 const CARD='f8a71b25eabe711318981c7bded7c2eba31a6a103bbf8ad5f0b3236bc68963d1';
 const AMOUNT=100;
 const PATHS=Object.freeze({init:'/api/v1/card/unregistered/debit/wof',lookup:'/api/v1/order/state'});
+const RAW=join(PRIVATE,'raw');
+const RAW_KEY=join(PRIVATE,'raw.key');
+const RECON_MAX=10;
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const utc=()=>new Date().toISOString();
 const gate=(condition,name)=>{if(!condition)throw new Error('GATE_'+name);};
@@ -54,6 +57,23 @@ function summary(body,ledger,http,sensitive=[]){
   if(result.ref_match===false||result.amount_match===false||result.currency_match===false)result.reply_kind='correlation_conflict';
   // No bank status dictionary supplied: never map HTTP/code/status text to paid.
   return result;
+}
+async function rawKey(){
+  await mkdir(PRIVATE,{recursive:true,mode:0o700});
+  try{const key=await readFile(RAW_KEY);gate(key.length===32,'RAW_KEY');return key;}catch(error){if(error.code!=='ENOENT')throw error;}
+  const key=randomBytes(32);const handle=await open(RAW_KEY,'wx',0o600);try{await handle.writeFile(key);await handle.sync();}finally{await handle.close();}return key;
+}
+async function purgeRaw(){
+  try{await stat(RAW);}catch(error){if(error.code==='ENOENT')return {purged:0};throw error;}
+  const entries=await (await import('node:fs/promises')).readdir(RAW,{withFileTypes:true});let purged=0;
+  for(const entry of entries){if(!entry.isFile()||!/^(reconcile|lookup)-[0-9]+\.enc\.json$/.test(entry.name))continue;const file=join(RAW,entry.name);let item;try{item=JSON.parse(await readFile(file,'utf8'));}catch{continue;}if(typeof item.expires_at==='string'&&Date.parse(item.expires_at)<Date.now()){await (await import('node:fs/promises')).unlink(file);purged++;}}
+  return {purged};
+}
+async function storeRaw(stage,http,raw){
+  await mkdir(RAW,{recursive:true,mode:0o700});gate(((await stat(RAW)).mode&0o077)===0,'RAW_DIRECTORY');
+  const key=await rawKey();const nonce=randomBytes(12);const cipher=createCipheriv('aes-256-gcm',key,nonce);const plain=Buffer.from(raw,'utf8');const data=Buffer.concat([cipher.update(plain),cipher.final()]);plain.fill(0);key.fill(0);
+  const record={version:1,stage,http,checked_at:utc(),body_hash:hash(raw),nonce:nonce.toString('base64'),tag:cipher.getAuthTag().toString('base64'),data:data.toString('base64'),expires_at:new Date(Date.now()+24*60*60*1000).toISOString()};
+  const file=join(RAW,`${stage}-${Date.now()}.enc.json`);await writeExclusive(file,record);data.fill(0);return {file_hash:hash(file),body_hash:record.body_hash,expires_at:record.expires_at};
 }
 async function writeExclusive(file,value){
   // Persist private-directory ancestry before any durable dispatch marker.
@@ -103,7 +123,7 @@ async function bankPost(cfg,stage,body){
     const req=request(target,{method:'POST',headers,agent,signal:AbortSignal.timeout(15000)},res=>{
       const pieces=[];let size=0;
       res.on('data',chunk=>{size+=chunk.length;if(size>65536){res.destroy();reject(new Error('GATE_RESPONSE_SIZE'));}else pieces.push(chunk);});
-      res.on('end',()=>{try{const raw=Buffer.concat(pieces);const value=JSON.parse(raw.toString('utf8'));raw.fill(0);resolve({http:res.statusCode,body:value});}catch{reject(new Error('GATE_RESPONSE_JSON'));}});
+      res.on('end',()=>{try{const raw=Buffer.concat(pieces);const text=raw.toString('utf8');const value=JSON.parse(text);raw.fill(0);resolve({http:res.statusCode,body:value,raw:text});}catch{reject(new Error('GATE_RESPONSE_JSON'));}});
       res.on('error',reject);
     });
     req.on('socket',socket=>socket.once('secureConnect',()=>{const mismatch=checkServerIdentity(target.hostname,socket.getPeerCertificate());if(mismatch)req.destroy(mismatch);else req.end(bytes);}));
@@ -124,9 +144,10 @@ async function localTests(){
   console.log(JSON.stringify({status:'PASS',check:'offline_wof',network_calls:0,financial_calls:0}));
 }
 const command=process.argv[2]??'local';
-let dispatched=false,ledger,action,lookupIndex;
+let dispatched=false,ledger,action,lookupIndex,phase='start';
 try{
   if(command==='local'||command==='--self-test'){await localTests();}
+  else if(command==='purge-raw'){console.log(JSON.stringify({status:'PASS',check:'purge_raw',network_calls:0,...await purgeRaw()}));}
   else if(command==='prepare'){
     await mkdir(PRIVATE,{recursive:true,mode:0o700});
     gate(((await stat(PRIVATE)).mode&0o077)===0,'PRIVATE_DIRECTORY');
@@ -138,6 +159,22 @@ try{
   }else if(command==='inspect'){
     ledger=await readLedger();let sent=false;try{await stat(join(PRIVATE,'dispatch-init.json'));sent=true;}catch(error){if(error.code!=='ENOENT')throw error;}
     console.log(JSON.stringify({status:'LOCAL',scenario:ledger.scenario,ref_hash:hash(ledger.ref),amount:ledger.amount,currency:ledger.currency,initial_consumed:sent,financial:'unproven',network_calls:0}));
+  }else if(command==='reconcile'){
+    phase='reconcile_gate';
+    phase='reconcile_setup';
+    gate(process.argv.includes('--run')&&process.argv.includes('--test-tls'),'EXPLICIT_TEST_FLAGS');
+    ledger=await readLedger();const cfg=await settings();
+    const initial=await readFile(join(PRIVATE,'dispatch-init.json'),'utf8').then(JSON.parse);
+    gate(initial.stage==='init'&&initial.state==='dispatch_started'&&initial.ref===ledger.ref&&initial.target_hash===ORIGIN&&initial.amount===100&&initial.currency==='RUB','INITIAL_STATE');
+    const attempts=[];for(let i=1;i<=RECON_MAX;i++){try{attempts.push(JSON.parse(await readFile(join(PRIVATE,'reconcile-'+i+'.json'),'utf8')));}catch(error){if(error.code!=='ENOENT')throw error;}}
+    gate(attempts.length<RECON_MAX,'RECON_BUDGET');
+    phase='reconcile_scan';
+    const names=await readdir(PRIVATE);const completed=[];
+    for(const prefix of ['lookup','reconcile']){for(const name of names.filter(n=>new RegExp('^'+prefix+'-[0-9]+\\.json$').test(n))){const marker=JSON.parse(await readFile(join(PRIVATE,name),'utf8'));const match=name.match(/-([0-9]+)\.json$/);gate(match!==null,'GLOBAL_MARKER_NAME');const idx=match[1];const done=join(PRIVATE,prefix==='lookup'?'lookup-complete-'+idx+'.json':'reconcile-complete-'+idx+'.json');try{const completion=JSON.parse(await readFile(done,'utf8'));gate(completion.state==='transport_closed'&&completion.ref===ledger.ref&&completion.target_hash===ORIGIN,'GLOBAL_COMPLETE');completed.push(completion);}catch{throw new Error('GATE_GLOBAL_INFLIGHT');}}}
+    if(completed.length){const latest=completed.sort((x,y)=>Date.parse(y.closed_at)-Date.parse(x.closed_at))[0];gate(Date.now()-Date.parse(latest.closed_at)>=60000,'GLOBAL_RECON_INTERVAL');}
+    for(let i=0;i<attempts.length;i++){const prior=attempts[i];gate(prior.state==='dispatch_started'&&prior.ref===ledger.ref&&prior.target_hash===ORIGIN,'RECON_STATE');let complete;try{complete=JSON.parse(await readFile(join(PRIVATE,'reconcile-complete-'+(i+1)+'.json'),'utf8'));}catch{throw new Error('GATE_RECON_INFLIGHT');}gate(complete.state==='transport_closed'&&complete.ref===ledger.ref&&complete.target_hash===ORIGIN&&complete.index===i+1&&/^[0-9]+$/.test(complete.tick??''),'RECON_COMPLETE');gate(process.hrtime.bigint()-BigInt(complete.tick)>=60_000_000_000n&&Date.now()-Date.parse(complete.closed_at)>=60000,'RECON_INTERVAL');}
+    phase='reconcile_marker';
+    lookupIndex=attempts.length+1;action={stage:'reconcile',state:'dispatch_started',ref:ledger.ref,target_hash:ORIGIN,created_at:utc(),tick:process.hrtime.bigint().toString(),index:lookupIndex};await writeExclusive(join(PRIVATE,'reconcile-'+lookupIndex+'.json'),action);dispatched=true;const response=await bankPost(cfg,'lookup',{ExtID:ledger.ref});await writeExclusive(join(PRIVATE,'reconcile-complete-'+lookupIndex+'.json'),{state:'transport_closed',ref:ledger.ref,target_hash:ORIGIN,index:lookupIndex,closed_at:utc(),tick:process.hrtime.bigint().toString()});const rawArtifact=await storeRaw('reconcile',response.http,response.raw);const safe=summary(response.body,ledger,response.http,[cfg.login,cfg.secret]);safe.status='INCONCLUSIVE';safe.dispatch_state='consumed';safe.reconcile_index=lookupIndex;safe.raw_local=true;safe.raw_body_hash=rawArtifact.body_hash;safe.raw_expires_at=rawArtifact.expires_at;safe.commit=execFileSync('/usr/bin/git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim();safe.source_hash=hash(await readFile(fileURLToPath(import.meta.url)));await writeExclusive(join(PRIVATE,'result-reconcile-'+Date.now()+'.json'),safe);console.log(JSON.stringify(safe));
   }else if(command==='init'||command==='lookup'){
     gate(process.argv.includes('--run')&&process.argv.includes('--test-tls'),'EXPLICIT_TEST_FLAGS');
     ledger=await readLedger();const cfg=await settings();let body,card;
@@ -183,5 +220,8 @@ try{
   if(typeof error.message==='string'&&/^GATE_[A-Z_]+$/.test(error.message))safe.reason=error.message;
   else if(['EEXIST','ENOENT','EACCES'].includes(error.code))safe.reason=error.code;
   else safe.reason='local_or_transport_error';
+  if(error?.name&&/^[A-Za-z0-9_]+$/.test(error.name))safe.error_kind=error.name;
+  if(error?.code&&/^[A-Z_0-9]+$/.test(error.code))safe.error_code=error.code;
+  safe.phase=phase;
   console.log(JSON.stringify(safe));
 }

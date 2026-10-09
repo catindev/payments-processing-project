@@ -14,6 +14,7 @@
 *environment.postman*.json
 
 # Private material: bank docs, sources, packets, logs
+.audit-local/
 sources/private/
 secrets/
 reports/raw/
