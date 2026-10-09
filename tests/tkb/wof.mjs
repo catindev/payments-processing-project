@@ -15,6 +15,7 @@ const AMOUNT=100;
 const PATHS=Object.freeze({init:'/api/v1/card/unregistered/debit/wof',lookup:'/api/v1/order/state'});
 const RAW=join(PRIVATE,'raw');
 const RAW_KEY=join(PRIVATE,'raw.key');
+const ACCESS=join(PRIVATE,'access.log');
 const RECON_MAX=10;
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const utc=()=>new Date().toISOString();
@@ -58,22 +59,27 @@ function summary(body,ledger,http,sensitive=[]){
   // No bank status dictionary supplied: never map HTTP/code/status text to paid.
   return result;
 }
+async function accessLog(event,details={}){
+  await mkdir(PRIVATE,{recursive:true,mode:0o700});
+  const handle=await open(ACCESS,'a',0o600);
+  try{const info=await stat(ACCESS);gate((info.mode&0o077)===0,'ACCESS_LOG_MODE');await handle.writeFile(JSON.stringify({at:utc(),event,...details})+'\n','utf8');await handle.sync();}finally{await handle.close();}
+}
 async function rawKey(){
   await mkdir(PRIVATE,{recursive:true,mode:0o700});
-  try{const key=await readFile(RAW_KEY);gate(key.length===32,'RAW_KEY');return key;}catch(error){if(error.code!=='ENOENT')throw error;}
-  const key=randomBytes(32);const handle=await open(RAW_KEY,'wx',0o600);try{await handle.writeFile(key);await handle.sync();}finally{await handle.close();}return key;
+  try{const info=await stat(RAW_KEY);gate((info.mode&0o077)===0,'RAW_KEY_MODE');const key=await readFile(RAW_KEY);gate(key.length===32,'RAW_KEY');return key;}catch(error){if(error.code!=='ENOENT')throw error;}
+  const key=randomBytes(32);const handle=await open(RAW_KEY,'wx',0o600);try{await handle.writeFile(key);await handle.sync();}finally{await handle.close();}await accessLog('raw_key_created');return key;
 }
 async function purgeRaw(){
   try{await stat(RAW);}catch(error){if(error.code==='ENOENT')return {purged:0};throw error;}
   const entries=await (await import('node:fs/promises')).readdir(RAW,{withFileTypes:true});let purged=0;
   for(const entry of entries){if(!entry.isFile()||!/^(reconcile|lookup)-[0-9]+\.enc\.json$/.test(entry.name))continue;const file=join(RAW,entry.name);let item;try{item=JSON.parse(await readFile(file,'utf8'));}catch{continue;}if(typeof item.expires_at==='string'&&Date.parse(item.expires_at)<Date.now()){await (await import('node:fs/promises')).unlink(file);purged++;}}
-  return {purged};
+  await accessLog('raw_purge',{purged});return {purged};
 }
 async function storeRaw(stage,http,raw){
   await mkdir(RAW,{recursive:true,mode:0o700});gate(((await stat(RAW)).mode&0o077)===0,'RAW_DIRECTORY');
   const key=await rawKey();const nonce=randomBytes(12);const cipher=createCipheriv('aes-256-gcm',key,nonce);const plain=Buffer.from(raw,'utf8');const data=Buffer.concat([cipher.update(plain),cipher.final()]);plain.fill(0);key.fill(0);
   const record={version:1,stage,http,checked_at:utc(),body_hash:hash(raw),nonce:nonce.toString('base64'),tag:cipher.getAuthTag().toString('base64'),data:data.toString('base64'),expires_at:new Date(Date.now()+24*60*60*1000).toISOString()};
-  const file=join(RAW,`${stage}-${Date.now()}.enc.json`);await writeExclusive(file,record);data.fill(0);return {file_hash:hash(file),body_hash:record.body_hash,expires_at:record.expires_at};
+  const file=join(RAW,`${stage}-${Date.now()}.enc.json`);await writeExclusive(file,record);await accessLog('raw_store',{stage,http,body_hash:record.body_hash,expires_at:record.expires_at});data.fill(0);return {file_hash:hash(file),body_hash:record.body_hash,expires_at:record.expires_at};
 }
 async function writeExclusive(file,value){
   // Persist private-directory ancestry before any durable dispatch marker.

@@ -11,8 +11,8 @@
 В разрешённом sandbox:
 
 - raw response может временно сохраняться **только локально вне Git**;
-- файл шифруется AES-GCM, ключ находится локально с owner-only permissions;
-- raw artifact имеет TTL 24 часа и очищается командой purge-raw;
+- файл шифруется AES-GCM, ключ и access log находятся локально с owner-only permissions;
+- raw artifact имеет TTL 24 часа и очищается командой purge-raw; raw-store/purge access events пишутся без raw body и секретов;
 - чат, Git и отчёты получают только sanitized projection, hashes, types, lengths, allowlisted fields и classifications;
 - PAN/CVV, реальные secrets, login/signature, access tokens и raw body в LLM-сообщения не передаются;
 - production и реальные финансовые операции не покрываются этим режимом.
