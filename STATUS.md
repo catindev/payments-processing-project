@@ -1,8 +1,8 @@
 # STATUS — состояние после первичного аудита
 
-**Срез:** 2026-10-09. **Ветка:** `research/initial-audit`. **Исходная ревизия аудита:** `97784b9d69e5f7ce347f84429f69bacc5872cbf0`.
+**Срез:** 2026-10-09, обновлён после разрешённого Hello preflight. **Текущая ветка:** `research/tkb-preflight` (от `research/initial-audit`, commit `1c84bb3`). **Исходная ревизия аудита:** `97784b9d69e5f7ce347f84429f69bacc5872cbf0`.
 
-**Итог:** первичный аудит и восстановление контекста завершены; заказчику предъявлены противоречия и предложения. **Готовности к production нет.** Реализация масштабного core не начиналась; финансовые/банковские вызовы не выполнялись; утверждённые BR/NAME и current не изменены. Этот файл — обновлённое состояние, [первоначальный handoff-статус](<handoff/STATUS.md>) остаётся историческим срезом до работы агента.
+**Итог:** первичный аудит и восстановление контекста завершены; заказчику предъявлены противоречия и предложения. **Готовности к production нет.** Реализация масштабного core не начиналась; **финансовые вызовы не выполнялись**; после явного owner-допуска выполнен нефинансовый Hello preflight (см. обновление ниже). Утверждённые BR/NAME и current не изменены. Этот файл — обновлённое состояние, [первоначальный handoff-статус](<handoff/STATUS.md>) остаётся историческим срезом до работы агента.
 
 ## 1. Уровни готовности
 
@@ -18,7 +18,8 @@
 | 215 CT + 30 CF | **NOT_RUN — все 245 описаний** | [Core suite](<docs/current/acquirer-connector-contract-tests-v0.9.yaml>), [Checkout suite](<docs/current/checkout-contract-cases-v0.2.yaml>); YAML result не менялся |
 | Payment Core / simulator / bank connector | **Реализация не предоставлена в проектном репозитории** | Есть спецификации/SPI, нет исполняемого финансового ядра/runner; [TASK-002](<tasks/002-core-simulator.md>) не выполнен |
 | TKB WOF / 3DS2 | **Документированные методы; права/flow/финальность UNKNOWN; испытания NOT_RUN** | [Bank audit](<reports/results/audit/bank-reference-review.md>), [профиль](<docs/current/tkb-connector-profile-v0.2.yaml>) сохраняет unknown |
-| Финансовый sandbox gate | **BLOCKED для запуска** | Нет текущего явного допуска/подтверждённых прав терминала, полного актуального протокола и согласованного card-data контура. Это не блокирует завершённый аудит/офлайн проектирование |
+| Owner sandbox gate | **Явное разрешение получено**, включая финансовые тесты и предоставленный test-only card vector | [Preflight](<reports/results/tkb/2026-10-09-preflight.md>); отсутствие разрешения заказчика больше не является блокером. Bank method/terminal rights, актуальная 3DS/финансовая семантика и безопасный test harness исследуются отдельно |
+| Hello / связь | **PASS в явно разрешённом диагностическом TLS-режиме** | HTTP 200, errorCode=0/Успех, synthetic probe возвращён с префиксом Hello. InputString=. Строгий CA-режим BLOCKED: SELF_SIGNED_CERT_IN_CHAIN; это не подтверждение financial methods или production trust |
 | Собственный Checkout/card-entry | **BR-07 утверждён, не реализован/не испытан** | [Checkout design](<docs/current/payment-checkout-design-v0.2.md>); reference UI не готовый PCI продукт; QR+redirect не полное BR-07 |
 | PCI scope/attestation | **Не подтверждены** | Нужен владелец/security/банк/QSA; локальная статическая проверка не certification |
 | Callbacks/webhooks/reconciliation | **Проект, runtime NOT_RUN** | Не закрыты bank authenticity/status semantics, единый delivery contract и исполняемое recovery |
@@ -40,11 +41,17 @@
 
 **Опровергнуто на уровне аудита:** «все спецификации уже согласованы между собой», «свой Checkout только redirect достаточен для BR-07», «любой declined завершает Payment», «215+30 YAML означают пройденные тесты», «имя WOF/ExtId/partial доказывает права/идемпотентность/multicapture». Это не отрицательный банковский тест.
 
-**BLOCKED для запуска банка:** допуск owner/банк, exact sandbox/terminal/method scope, безопасный card-data test perimeter, актуальные 3DS/evidence/retry/correlation документы. Необязательная replay проверка дополнительно требует G4.
+**Обновление допуска:** owner явно разрешил sandbox, включая финансовые тесты, предоставил test-only карточный вектор и разрешил техническое исследование/TLS исключение. Owner authorization не BLOCKED. Strict CA trust пока BLOCKED; Hello разрешён/выполнен в ограниченном diagnostic режиме. Bank method rights, response/3DS/evidence/retry/correlation и безопасный financial harness пока не доказаны; денежные вызовы NOT_RUN, неизвестные повторы запрещены.
 
-**NOT_RUN:** все 245 CT/CF, 21 BRV practical cases, WOF/3DS2/debit/hold/capture/void/refund/bind/settlement, браузерные E2E, нагрузка, TS compile, формальная PCI оценка и визуальная сверка PDF.
+**NOT_RUN:** все 245 CT/CF; остальные 20 BRV practical cases (BRV-03 Hello выполнен в ограниченном diagnostic режиме); WOF/3DS2/debit/hold/capture/void/refund/bind/settlement, браузерные E2E, нагрузка, TS compile, формальная PCI оценка и визуальная сверка PDF.
 
 **INCONCLUSIVE:** точное восстановление отдельных PDF таблиц/визуальных блоков; банковская runtime семантика не выведена из неполных response schemas.
+
+## Обновление: разрешённый банковский preflight
+
+2026-10-09 выполнены synthetic HMAC/echo fixtures, один standard-CA Hello attempt (TLS failure), один strict TLS diagnostic без HTTP/credentials и три независимых нефинансовых Hello POST с явно разрешённым CA-chain exception. Последний наблюдённый ответ: HTTP 200, errorCode=0/Успех, outputString содержит уникальный synthetic input с префиксом Hello. InputString=. Фактическая проверка Hello PASS по уточнённому формату; строгая первоначальная exact-echo гипотеза не подтвердилась. CA доверие не подтверждено, hostname проверялся. Глобальная TLS policy не изменена, права WOF и финансовый успех не выведены из Hello.
+
+Источники/команды/границы — [preflight](<reports/results/tkb/2026-10-09-preflight.md>), [Hello client](<tests/tkb/hello.mjs>), [TLS diagnostic](<tests/tkb/tls-probe.mjs>). Никаких карточных/денежных методов не вызывалось, предоставленная test-only карта не сохранялась.
 
 ## 4. Приоритет следующих действий
 
@@ -53,7 +60,7 @@
 3. Operation-specific outcomes, continuation/evidence, schema/case/link cleanup и event/capability mapping.
 4. Узкий offline simulator/harness, затем только разрешённая sandbox feasibility.
 
-Полный порядок/DoD — [next steps](<tasks/next-steps.md>). Промышленный core, банк или массовый запуск reference apps сейчас не являются автоматически разрешённым следующим действием.
+Полный порядок/DoD — [next steps](<tasks/next-steps.md>). Разрешённые sandbox-эксперименты можно исследовать самостоятельно в рамках полученного owner-допуска; production, реальные денежные операции и массовый запуск reference apps этим не разрешены. Денежные повторы при unknown и обход 3DS запрещены.
 
 Итоговый контроль документации, источников, ссылок и безопасного состава Git — [delivery checks](<reports/results/audit/delivery-checks.md>).
 
