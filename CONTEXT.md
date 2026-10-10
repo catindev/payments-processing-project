@@ -1,6 +1,6 @@
 # CONTEXT — восстановленный контекст проекта
 
-**Срез:** 2026-10-09; дополнен owner-допуском, Hello preflight и WOF-01. **Текущая ветка:** `research/tkb-wof` (preflight: `research/tkb-preflight`, primary audit: `research/initial-audit`, commit `1c84bb3`). **Исходная ревизия аудита:** `97784b9d69e5f7ce347f84429f69bacc5872cbf0`.
+**Срез:** 2026-10-09; дополнен owner-допуском, Hello preflight, WOF-01 и sandbox diagnostics revision. **Рабочая ветка:** `fix/sandbox-diagnostics`; исходные audit/preflight/WOF ветки слиты в `main`. **Исходная ревизия аудита:** `97784b9d69e5f7ce347f84429f69bacc5872cbf0`.
 
 Это производный контекст первой итерации, **не новый журнал согласования**. При расхождении действуют [утверждённые решения](<docs/current/payment-processing-decisions-v1.1.md>) и [NAME-01](<docs/current/payment-naming-conventions-v1.1.md>). [Исходный handoff](<handoff/PROJECT_CONTEXT.md>) сохранён. Итоги и ограничения — в [аудите](<reports/initial-audit.md>), текущая готовность — в [STATUS](<STATUS.md>).
 
@@ -9,7 +9,19 @@
 - Заказчик принимает продуктовые/бизнес-решения, выбирает правовую и расчётную модель, предоставляет допуски. Аналитик самостоятельно исследует и предлагает API/архитектуру, проверяет технические гипотезы и сохраняет свидетельства. Стек, БД и число сервисов не следует выдавать за бизнес-решения.
 - Соблюдать [AGENTS](<AGENTS.md>) и [протокол экспериментов](<handoff/EXECUTION_PROTOCOL.md>). История не отменяет current; молчание не означает согласования. Спорные изменения оформляются RFC и предъявляются заказчику.
 - На момент первичного аудита были разрешены только анализ и локальная статическая проверка. **После аудита заказчик явно разрешил sandbox, включая финансовые тесты**, указал существующий Postman environment, предоставил test-only карту и разрешил самостоятельное исследование. Также отдельно разрешены хранение именно test-only карточного fixture в коде/Git и тестовое исключение CA-проверки. Актуальный scope/фактические наблюдения — [preflight](<reports/results/tkb/2026-10-09-preflight.md>). Production, реальные карточные данные/секреты, обход 3DS и неизвестные денежные повторы этим не разрешены. Наличие endpoint не доказывает bank-terminal rights.
-- Не переносить PAN/CVV, секреты, полные запросы/ответы и рабочие токены в Git, общие журналы, отчёты и контекст модели. Оригиналы банка/референсные исходники не публиковать; лицензии и право переиспользования проверить отдельно.
+- Не публиковать известные auth secrets, configured login/secret, приватные ключи, CVV и PAN, session/access tokens в общих журналах и диагностическом LLM context; ранее отдельно согласованный test-only карточный fixture не означает автоматического допуска любых диагностических данных в Git. Оригиналы банка/референсные исходники не публиковать; лицензии и право переиспользования проверить отдельно.
+
+### Актуальное уточнение sandbox diagnostics
+
+Исторический срез выше, authorized tests и их `UNKNOWN` остаются без переоценки. Новая редакция diagnostic policy разделяет каналы:
+
+- **Local:** в ранее данном owner sandbox scope полный фактический response можно читать/анализировать и сохранять вне repo/Git без дополнительных разрешений. Обычный режим — owner-only plain response JSON (`0700` каталог / `0600` файл); AES-GCM, access log и TTL включаются opt-in. 24 часа — вариант TTL, не обязательный срок.
+- **LLM:** полноценная структурированная диагностика с адресным удалением известных auth secrets, configured login/secret, приватных ключей, CVV и PAN, session/access tokens, в том числе внутри текстов ошибок и URL. Неизвестные поля и error messages сами по себе не секрет; whitelist/категории не заменяют полный очищенный ответ.
+- **Public Git:** отдельный review содержимого и прав публикации; ни local artifact, ни LLM context не экспортируются автоматически. Raw owner-only artifact, ключ и local access log остаются вне repo.
+
+Сначала прочитать фактический response, затем объяснять исход; неизвестные поля не повод объявить диагностику `BLOCKED`. Ограничения обозначать по реальному происхождению (`protocol / tool / project / environment / security risk`) и свидетельству, без выдуманного higher-policy запрета raw chat. Денежный `UNKNOWN` по-прежнему запрещает retry/новую оплату.
+
+Проверенный CLI: `node tests/tkb/wof.mjs diagnose [--file NAME|--list]` — offline/no network; `--diagnostic` на разрешённом сетевом вызове выводит sanitized full structured response; `diagnose --raw` показывает raw владельцу только в local TTY, не общих tool logs. `--encrypted`, `--ttl-hours N`, `--access-log` включают соответствующие opt-in защиты, `--no-raw` оставляет только sanitized diagnostic projection. Реализация подтверждается offline tests в текущем PR; банковский вызов заново не выполнялся. Подробности и неизменяемые financial gates — [протокол](<handoff/EXECUTION_PROTOCOL.md>) и [RFC-002](<docs/changes/RFC-002-sandbox-raw-reconciliation.md>).
 
 ## 2. Продукт и границы
 

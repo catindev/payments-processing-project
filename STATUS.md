@@ -1,6 +1,6 @@
 # STATUS — состояние после первичного аудита
 
-**Срез:** 2026-10-09, обновлён после разрешённых Hello, WOF-01 preflight/lookup и reconciliation. **Текущая ветка:** `research/tkb-wof` (preflight: `research/tkb-preflight`, audit: `research/initial-audit`, commit `1c84bb3`). **Исходная ревизия аудита:** `97784b9d69e5f7ce347f84429f69bacc5872cbf0`.
+**Срез:** 2026-10-09, обновлён после разрешённых Hello, WOF-01 preflight/lookup, reconciliation и sandbox diagnostics revision. **Рабочая ветка:** `fix/sandbox-diagnostics` (base `main` at `5192a9a`). **Исходная ревизия аудита:** `97784b9d69e5f7ce347f84429f69bacc5872cbf0`.
 
 **Итог:** первичный аудит и восстановление контекста завершены; заказчику предъявлены противоречия и предложения. **Готовности к production нет.** Реализация масштабного core не начиналась; после явного owner-допуска выполнены ограниченные sandbox-вызовы: один WOF debit candidate и read-only status/reconciliation lookups, при этом финансовый исход остаётся UNKNOWN/INCONCLUSIVE (см. обновление ниже). Утверждённые BR/NAME и current не изменены. Этот файл — обновлённое состояние, [первоначальный handoff-статус](<handoff/STATUS.md>) остаётся историческим срезом до работы агента.
 
@@ -17,7 +17,7 @@
 | TS compile | **NOT_RUN** | tsc отсутствует; 76 TS regex property checks не заменяют компиляцию |
 | 215 CT + 30 CF | **NOT_RUN — все 245 описаний** | [Core suite](<docs/current/acquirer-connector-contract-tests-v0.9.yaml>), [Checkout suite](<docs/current/checkout-contract-cases-v0.2.yaml>); YAML result не менялся |
 | Payment Core / simulator / bank connector | **Реализация не предоставлена в проектном репозитории** | Есть спецификации/SPI, нет исполняемого финансового ядра/runner; [TASK-002](<tasks/002-core-simulator.md>) не выполнен |
-| TKB WOF / 3DS2 | **WOF initial выполнен; legacy 3DS action observed; финансовый исход UNKNOWN/INCONCLUSIVE** | [WOF-01](<reports/results/tkb/2026-10-09-wof-01.md>), [protocol review](<reports/results/tkb/wof-protocol-review.md>), [RFC-002](<docs/changes/RFC-002-sandbox-raw-reconciliation.md>); один WOF POST, три исторических status lookup и один reconciliation lookup HTTP500; reconciliation budget отделён, повтор debit запрещён |
+| TKB WOF / 3DS2 | **WOF initial выполнен; legacy 3DS action observed; финансовый исход UNKNOWN/INCONCLUSIVE** | [WOF-01](<reports/results/tkb/2026-10-09-wof-01.md>), [protocol review](<reports/results/tkb/wof-protocol-review.md>), [RFC-002](<docs/changes/RFC-002-sandbox-raw-reconciliation.md>), [diagnostics review](<reports/results/tkb/2026-10-09-sandbox-diagnostics-review.md>); один WOF POST, три исторических status lookup и один reconciliation lookup HTTP500; diagnostics policy/code revised on `fix/sandbox-diagnostics`, reconciliation budget отделён, повтор debit запрещён |
 | Owner sandbox gate | **Явное разрешение получено**, включая финансовые тесты и предоставленный test-only card vector | [Preflight](<reports/results/tkb/2026-10-09-preflight.md>); отсутствие разрешения заказчика больше не является блокером. Bank method/terminal rights, актуальная 3DS/финансовая семантика и безопасный test harness исследуются отдельно |
 | Hello / связь | **PASS в явно разрешённом диагностическом TLS-режиме** | HTTP 200, errorCode=0/Успех, synthetic probe возвращён с префиксом Hello. InputString=. Строгий CA-режим BLOCKED: SELF_SIGNED_CERT_IN_CHAIN; это не подтверждение financial methods или production trust |
 | Собственный Checkout/card-entry | **BR-07 утверждён, не реализован/не испытан** | [Checkout design](<docs/current/payment-checkout-design-v0.2.md>); reference UI не готовый PCI продукт; QR+redirect не полное BR-07 |
@@ -56,7 +56,7 @@
 ## 4. Приоритет следующих действий
 
 1. Review [RFC](<docs/changes/RFC-001-initial-audit.md>) и семь [бизнес-вопросов](<reports/open-questions.md>), без переоткрытия BR.
-2. Private storage/ignore и clean evidence safeguards; актуальный bank protocol + права, PCI/security и legal workstreams.
+2. Private storage/ignore, diagnostics channel separation и clean evidence safeguards; актуальный bank protocol + права, PCI/security и legal workstreams.
 3. Operation-specific outcomes, continuation/evidence, schema/case/link cleanup и event/capability mapping.
 4. Узкий offline simulator/harness, затем только разрешённая sandbox feasibility.
 
